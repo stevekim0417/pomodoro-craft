@@ -59,6 +59,51 @@ body {
 .progress-block.filled { background: var(--accent); border-color: var(--accent-light) #3A5A1A #3A5A1A var(--accent-light); }
 .progress-block.active { animation: blockPulse .6s infinite alternate; }
 @keyframes blockPulse { 0%{background:var(--accent)} 100%{background:var(--accent-light)} }
+/* Task Input */
+.task-input-wrap { display: flex; justify-content: center; margin: 6px 0 8px; }
+.task-input {
+  font-family: 'Press Start 2P', monospace; font-size: 8px;
+  padding: 7px 12px; background: #555; color: #FFF;
+  border: 2px solid; border-color: #2A2A2A #7A7A7A #7A7A7A #2A2A2A;
+  width: 85%; outline: none; text-align: center;
+  text-shadow: 1px 1px 0 #000;
+}
+.task-input::placeholder { color: #999; }
+.task-input:focus { border-color: #4488CC #2A5A8A #2A5A8A #4488CC; background: #4A4A4A; }
+
+/* Session Log */
+.session-log {
+  margin-top: 6px; max-height: 0; overflow: hidden;
+  transition: max-height .35s ease;
+}
+.session-log.open { max-height: 300px; }
+.session-log-inner {
+  max-height: 140px; overflow-y: auto; padding: 4px;
+  scrollbar-width: thin; scrollbar-color: #666 #444;
+}
+.session-log-inner::-webkit-scrollbar { width: 6px; }
+.session-log-inner::-webkit-scrollbar-track { background: #444; }
+.session-log-inner::-webkit-scrollbar-thumb { background: #888; }
+.log-entry {
+  display: flex; gap: 8px; padding: 3px 6px; font-size: 6px;
+  color: #CCC; text-shadow: 1px 1px 0 #000; align-items: center;
+}
+.log-entry:nth-child(even) { background: rgba(0,0,0,0.15); }
+.log-time { color: #999; min-width: 40px; }
+.log-type { min-width: 45px; font-weight: bold; }
+.log-type.focus { color: #8DB360; }
+.log-type.break { color: #4488CC; }
+.log-type.longbreak { color: #CC88FF; }
+.log-task { color: #FFF; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.log-dur { color: #AAA; min-width: 30px; text-align: right; }
+.log-toggle {
+  text-align: center; padding: 4px; margin-top: 4px;
+  font-family: 'Press Start 2P', monospace; font-size: 6px;
+  color: #999; cursor: pointer; text-shadow: 1px 1px 0 #000;
+}
+.log-toggle:hover { color: #FFF; }
+.log-empty { text-align: center; padding: 8px; font-size: 6px; color: #888; }
+
 .controls { display: flex; gap: 8px; justify-content: center; margin: 12px 0; }
 .mc-btn {
   font-family: 'Press Start 2P', monospace; font-size: 11px; padding: 10px 20px;
@@ -218,6 +263,9 @@ body {
         <div class="timer-display" id="timerDisplay">25:00</div>
         <div class="progress-bar" id="progressBar"></div>
       </div>
+      <div class="task-input-wrap">
+        <input class="task-input" id="taskInput" placeholder="What are you working on?" maxlength="50">
+      </div>
       <div class="controls">
         <button class="mc-btn primary" id="startBtn">START</button>
         <button class="mc-btn" id="skipBtn">SKIP</button>
@@ -249,6 +297,10 @@ body {
       <div class="lofi-player" id="lofiPlayer"></div>
       <div class="hotbar" id="hotbar"></div>
       <div class="daily-stats" id="dailyStats"></div>
+      <div class="log-toggle" id="logToggle" onclick="toggleSessionLog()">SESSION LOG ▼</div>
+      <div class="session-log" id="sessionLog">
+        <div class="session-log-inner" id="sessionLogInner"></div>
+      </div>
 
       <!-- Settings Drawer -->
       <div class="settings-drawer-tab" id="settingsTab" onclick="toggleSettingsDrawer()">
@@ -305,7 +357,8 @@ function todayKey() {
 }
 function loadDaily() {
   const d = JSON.parse(localStorage.getItem('pomodocraft_daily') || '{}');
-  if (d.date !== todayKey()) return { date: todayKey(), sessions: 0, focusMin: 0, breakMin: 0, blocks: 0 };
+  if (d.date !== todayKey()) return { date: todayKey(), sessions: 0, focusMin: 0, breakMin: 0, blocks: 0, log: [] };
+  if (!d.log) d.log = [];
   return d;
 }
 function saveDaily(data) {
@@ -318,8 +371,14 @@ function recordSession(type, minutes) {
   daily = loadDaily();
   if (type === 'focus') { daily.sessions++; daily.focusMin += minutes; }
   else { daily.breakMin += minutes; }
+  // Add to session log
+  const now = new Date();
+  const timeStr = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+  const task = document.getElementById('taskInput').value.trim();
+  daily.log.push({ time: timeStr, type, duration: minutes, task: task || '' });
   saveDaily(daily);
   renderDailyStats();
+  renderSessionLog();
 }
 function recordBlocks(count) {
   daily = loadDaily();
@@ -1163,8 +1222,8 @@ function startTimer() {
         setMode(isLongBreak ? 'longbreak' : 'break');
         if (autoBreak) setTimeout(() => startTimer(), 1500);
       } else {
-        const mins = timerMode==='longbreak' ? longBreakMin : breakMin;
-        recordSession('break', mins);
+        const isLong = timerMode==='longbreak';
+        recordSession(isLong ? 'longbreak' : 'break', isLong ? longBreakMin : breakMin);
         sendNotification('Break Over!', 'Ready to focus again?');
         setMode('focus');
         if (autoFocus) setTimeout(() => startTimer(), 1500);
@@ -1351,6 +1410,37 @@ function hideLofiPlayer() {
 }
 
 // ═══════════════════════════════════════════
+// SESSION LOG
+// ═══════════════════════════════════════════
+function renderSessionLog() {
+  const container = document.getElementById('sessionLogInner');
+  const d = loadDaily();
+  if (!d.log || d.log.length === 0) {
+    container.innerHTML = '<div class="log-empty">No sessions yet today</div>';
+    return;
+  }
+  container.innerHTML = d.log.map(entry => {
+    const typeLabel = entry.type === 'focus' ? 'FOCUS' : entry.type === 'longbreak' ? 'LONG' : 'BREAK';
+    const typeClass = entry.type === 'longbreak' ? 'longbreak' : entry.type;
+    return `<div class="log-entry">
+      <span class="log-time">${entry.time}</span>
+      <span class="log-type ${typeClass}">${typeLabel}</span>
+      <span class="log-task">${entry.task || '-'}</span>
+      <span class="log-dur">${entry.duration}m</span>
+    </div>`;
+  }).reverse().join('');
+  // Auto-scroll to top (latest entry)
+  container.scrollTop = 0;
+}
+
+function toggleSessionLog() {
+  const log = document.getElementById('sessionLog');
+  const toggle = document.getElementById('logToggle');
+  const isOpen = log.classList.toggle('open');
+  toggle.textContent = `SESSION LOG ${isOpen ? '▲' : '▼'}`;
+}
+
+// ═══════════════════════════════════════════
 // BROWSER NOTIFICATIONS
 // ═══════════════════════════════════════════
 function requestNotifPermission() {
@@ -1376,6 +1466,11 @@ function toggleSettingsDrawer() {
 // KEYBOARD
 // ═══════════════════════════════════════════
 document.addEventListener('keydown', e => {
+  // Don't trigger shortcuts when typing in task input
+  if (document.activeElement === document.getElementById('taskInput')) {
+    if (e.code === 'Enter') { e.preventDefault(); startTimer(); }
+    return;
+  }
   if (e.code==='Space') { e.preventDefault(); startTimer(); }
   else if (e.code==='KeyR') resetTimer();
   else if (e.code==='KeyS') skipTimer();
@@ -1399,6 +1494,7 @@ buildProgressBar();
 buildHotbar();
 buildScene();
 renderDailyStats();
+renderSessionLog();
 
 // Restore settings UI
 syncToggleBtn('toggleAlarm', 'SOUND', alarmEnabled);
