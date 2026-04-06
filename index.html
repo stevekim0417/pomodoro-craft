@@ -1,0 +1,1281 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Minecraft-style Pomodoro Timer with pixel art animations. Focus, mine blocks, and take breaks by the campfire.">
+<meta name="theme-color" content="#7EC8E3">
+<meta property="og:title" content="Pomodoro Craft">
+<meta property="og:description" content="Minecraft-style Pomodoro Timer with pixel art animations">
+<meta property="og:type" content="website">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect x='3' y='2' width='10' height='12' fill='%23808080'/><rect x='5' y='4' width='3' height='3' fill='%232CB9A8'/><rect x='8' y='8' width='3' height='3' fill='%232CB9A8'/></svg>">
+<title>Pomodoro Craft</title>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+<style>
+:root {
+  --sky-top: #7EC8E3; --sky-bottom: #B8E4F0;
+  --accent: #5B8731; --accent-light: #8DB360;
+  --ui-bg: #C6C6C6; --ui-inner: #8B8B8B;
+  --ui-light: #FEFEFE; --ui-dark: #373737;
+  --text: #3F3F3F; --transition-speed: 1.2s;
+}
+[data-mode="break"] {
+  --sky-top: #0B1026; --sky-bottom: #1B2838;
+  --accent: #2C5AA0; --accent-light: #4488CC;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  min-height: 100vh; display: flex; justify-content: center; align-items: center;
+  background: linear-gradient(180deg, var(--sky-top), var(--sky-bottom));
+  transition: background var(--transition-speed);
+  font-family: 'Press Start 2P', monospace; image-rendering: pixelated; overflow-x: hidden;
+}
+.stars { position: fixed; inset: 0; pointer-events: none; opacity: 0; transition: opacity var(--transition-speed); z-index: 0; }
+[data-mode="break"] .stars { opacity: 1; }
+.star { position: absolute; width: 4px; height: 4px; background: #FFF; animation: twinkle 2s infinite alternate; }
+@keyframes twinkle { 0%{opacity:.3} 100%{opacity:1} }
+@keyframes flicker1 { 0%{opacity:1} 100%{opacity:.4} }
+@keyframes flicker2 { 0%{opacity:.4} 100%{opacity:1} }
+
+.app { position: relative; z-index: 1; width: 520px; max-width: 95vw; }
+.title { text-align: center; margin-bottom: 16px; color: #FFF; text-shadow: 3px 3px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000; }
+.title h1 { font-size: 20px; letter-spacing: 2px; margin-bottom: 6px; }
+.title .subtitle { font-size: 9px; color: var(--accent-light); transition: color var(--transition-speed); }
+.container { background: var(--ui-bg); border: 4px solid; border-color: var(--ui-light) var(--ui-dark) var(--ui-dark) var(--ui-light); padding: 8px; }
+.inner { background: var(--ui-inner); border: 3px solid; border-color: #555 #AAA #AAA #555; padding: 12px; }
+.scene-wrap {
+  position: relative; width: 100%; aspect-ratio: 2/1; margin-bottom: 12px; overflow: hidden;
+  border: 3px solid; border-color: #555 #AAA #AAA #555;
+  background: linear-gradient(180deg, var(--sky-top) 0%, var(--sky-bottom) 60%, #5B8731 60.1%, #5B8731 63%, #866043 63.1%, #866043 100%);
+  transition: background var(--transition-speed);
+}
+.scene-wrap svg { width: 100%; height: 100%; display: block; }
+.timer-section { text-align: center; padding: 8px 0; }
+.mode-label { font-size: 10px; color: var(--accent-light); margin-bottom: 8px; letter-spacing: 2px; transition: color var(--transition-speed); }
+.timer-display { font-size: 48px; color: #FFF; text-shadow: 4px 4px 0 #000; letter-spacing: 4px; margin: 4px 0; font-variant-numeric: tabular-nums; }
+.progress-bar { display: flex; gap: 3px; margin: 12px 0; justify-content: center; }
+.progress-block { width: 20px; height: 20px; border: 2px solid; border-color: #AAA #555 #555 #AAA; background: #6B6B6B; transition: background .3s, border-color .3s; }
+.progress-block.filled { background: var(--accent); border-color: var(--accent-light) #3A5A1A #3A5A1A var(--accent-light); }
+.progress-block.active { animation: blockPulse .6s infinite alternate; }
+@keyframes blockPulse { 0%{background:var(--accent)} 100%{background:var(--accent-light)} }
+.controls { display: flex; gap: 8px; justify-content: center; margin: 12px 0; }
+.mc-btn {
+  font-family: 'Press Start 2P', monospace; font-size: 11px; padding: 10px 20px;
+  background: #8B8B8B; border: 3px solid; border-color: #C6C6C6 #555 #555 #C6C6C6;
+  color: var(--text); cursor: pointer; text-shadow: 1px 1px 0 #C6C6C6;
+  letter-spacing: 1px; transition: filter .1s; white-space: nowrap;
+}
+.mc-btn:hover { filter: brightness(1.15); }
+.mc-btn:active { border-color: #555 #C6C6C6 #C6C6C6 #555; padding: 11px 19px 9px 21px; }
+.mc-btn.primary { background: #5A8B3A; border-color: #8DB360 #2D5A1A #2D5A1A #8DB360; color: #FFF; text-shadow: 1px 1px 0 #2D5A1A; }
+.mc-btn.primary:active { border-color: #2D5A1A #8DB360 #8DB360 #2D5A1A; }
+.mc-btn.danger { background: #8B3A3A; border-color: #B36060 #5A1A1A #5A1A1A #B36060; color: #FFF; text-shadow: 1px 1px 0 #5A1A1A; }
+.settings { display: flex; justify-content: center; gap: 24px; margin: 12px 0; }
+.setting { display: flex; align-items: center; gap: 6px; }
+.setting label { font-size: 8px; color: #DDD; text-shadow: 1px 1px 0 #000; }
+.setting .value { font-size: 14px; color: #FFF; text-shadow: 2px 2px 0 #000; min-width: 36px; text-align: center; }
+.mc-btn-sm {
+  font-family: 'Press Start 2P', monospace; font-size: 10px; width: 26px; height: 26px;
+  display: flex; align-items: center; justify-content: center;
+  background: #8B8B8B; border: 2px solid; border-color: #C6C6C6 #555 #555 #C6C6C6;
+  color: var(--text); cursor: pointer; padding: 0;
+}
+.mc-btn-sm:active { border-color: #555 #C6C6C6 #C6C6C6 #555; }
+.hotbar { display: flex; justify-content: center; gap: 4px; margin-top: 12px; }
+.hotbar-slot {
+  width: 36px; height: 36px; background: #555; border: 2px solid;
+  border-color: #2A2A2A #7A7A7A #7A7A7A #2A2A2A;
+  display: flex; align-items: center; justify-content: center;
+}
+.hotbar-slot.active { border-color: #FFF #AAA #AAA #FFF; background: #666; }
+.hotbar-slot svg { width: 24px; height: 24px; }
+
+/* Daily Stats */
+.daily-stats {
+  margin-top: 10px; padding: 8px 12px;
+  background: #555; border: 2px solid; border-color: #2A2A2A #7A7A7A #7A7A7A #2A2A2A;
+  display: flex; flex-wrap: wrap; gap: 6px 16px; justify-content: center; align-items: center;
+}
+.daily-stats .stat-date { font-size: 7px; color: #AAA; text-shadow: 1px 1px 0 #000; width: 100%; text-align: center; margin-bottom: 2px; }
+.daily-stats .stat { font-size: 7px; color: #DDD; text-shadow: 1px 1px 0 #000; white-space: nowrap; }
+.daily-stats .stat b { color: #FFF; }
+
+/* Sound Settings */
+.sound-settings {
+  display: flex; justify-content: center; gap: 6px; margin: 10px 0 4px;
+  flex-wrap: wrap; align-items: center;
+}
+.mc-toggle {
+  font-family: 'Press Start 2P', monospace; font-size: 7px;
+  padding: 5px 10px; background: #6B3A3A;
+  border: 2px solid; border-color: #996060 #4A1A1A #4A1A1A #996060;
+  color: #CCC; cursor: pointer; white-space: nowrap;
+  text-shadow: 1px 1px 0 #000; transition: filter .1s;
+}
+.mc-toggle.on {
+  background: #3A6B3A; border-color: #60996D #1A4A1A #1A4A1A #60996D; color: #FFF;
+}
+.mc-toggle:hover { filter: brightness(1.15); }
+.mc-toggle:active { border-color: #555 #AAA #AAA #555; }
+.lofi-url-wrap {
+  display: none; justify-content: center; gap: 4px; margin: 4px 0;
+}
+.lofi-url-wrap.show { display: flex; }
+.lofi-url-input {
+  font-family: 'Press Start 2P', monospace; font-size: 6px;
+  padding: 4px 6px; background: #444; color: #DDD;
+  border: 2px solid; border-color: #2A2A2A #7A7A7A #7A7A7A #2A2A2A;
+  width: 200px; outline: none;
+}
+.lofi-url-input::placeholder { color: #888; }
+.lofi-player { display: none; margin-top: 8px; }
+.lofi-player.active { display: block; }
+.lofi-player iframe {
+  width: 100%; height: 80px;
+  border: 2px solid; border-color: #555 #AAA #AAA #555;
+}
+
+/* Settings Drawer */
+.settings-drawer-tab {
+  text-align: center; padding: 6px; margin-top: 8px;
+  font-family: 'Press Start 2P', monospace; font-size: 7px;
+  color: #BBB; cursor: pointer; letter-spacing: 1px;
+  text-shadow: 1px 1px 0 #000;
+  transition: color .2s;
+}
+.settings-drawer-tab:hover { color: #FFF; }
+.settings-drawer-tab .arrow {
+  display: inline-block; transition: transform .3s;
+  font-size: 6px; margin-left: 4px;
+}
+.settings-drawer-tab.open .arrow { transform: rotate(180deg); }
+.settings-drawer {
+  max-height: 0; overflow: hidden;
+  transition: max-height .35s ease, padding .35s ease;
+  padding: 0 8px;
+}
+.settings-drawer.open {
+  max-height: 200px;
+  padding: 8px;
+}
+.drawer-toggles {
+  display: flex; justify-content: center; gap: 6px;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 540px) {
+  .timer-display { font-size: 36px; }
+  .title h1 { font-size: 14px; }
+  .settings { gap: 12px; }
+  .mc-btn { font-size: 9px; padding: 8px 14px; }
+  .daily-stats { gap: 4px 10px; }
+  .lofi-url-input { width: 150px; }
+}
+</style>
+</head>
+<body data-mode="focus">
+<div class="stars" id="stars"></div>
+<div class="app">
+  <div class="title">
+    <h1>POMODORO CRAFT</h1>
+    <div class="subtitle" id="subtitleText">FOCUS TIME</div>
+  </div>
+  <div class="container">
+    <div class="inner">
+      <div class="scene-wrap">
+        <svg id="scene" viewBox="0 0 480 240" preserveAspectRatio="xMidYMid slice"></svg>
+      </div>
+      <div class="timer-section">
+        <div class="mode-label" id="modeLabel">FOCUS</div>
+        <div class="timer-display" id="timerDisplay">25:00</div>
+        <div class="progress-bar" id="progressBar"></div>
+      </div>
+      <div class="controls">
+        <button class="mc-btn primary" id="startBtn">START</button>
+        <button class="mc-btn" id="skipBtn">SKIP</button>
+        <button class="mc-btn danger" id="resetBtn">RESET</button>
+      </div>
+      <div class="settings">
+        <div class="setting">
+          <label>FOCUS</label>
+          <button class="mc-btn-sm" onclick="adjustTime('focus',-5)">-</button>
+          <span class="value" id="focusValue">25</span>
+          <button class="mc-btn-sm" onclick="adjustTime('focus',5)">+</button>
+          <label>MIN</label>
+        </div>
+        <div class="setting">
+          <label>BREAK</label>
+          <button class="mc-btn-sm" onclick="adjustTime('break',-1)">-</button>
+          <span class="value" id="breakValue">5</span>
+          <button class="mc-btn-sm" onclick="adjustTime('break',1)">+</button>
+          <label>MIN</label>
+        </div>
+      </div>
+      <div class="lofi-player" id="lofiPlayer"></div>
+
+      <div class="hotbar" id="hotbar"></div>
+      <div class="daily-stats" id="dailyStats"></div>
+
+      <!-- Settings Drawer -->
+      <div class="settings-drawer-tab" id="settingsTab" onclick="toggleSettingsDrawer()">
+        SETTINGS <span class="arrow">▼</span>
+      </div>
+      <div class="settings-drawer" id="settingsDrawer">
+        <div class="drawer-toggles">
+          <button class="mc-toggle on" id="toggleAlarm" onclick="toggleOpt('alarm')">SOUND ON</button>
+          <button class="mc-toggle" id="toggleAutoBreak" onclick="toggleOpt('autoBreak')">AUTO BREAK OFF</button>
+          <button class="mc-toggle" id="toggleAutoFocus" onclick="toggleOpt('autoFocus')">AUTO FOCUS OFF</button>
+          <button class="mc-toggle" id="toggleLofi" onclick="toggleOpt('lofi')">LOFI BREAK OFF</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════
+// CONSTANTS
+// ═══════════════════════════════════════════
+const P = 8;
+const SVG_W = 480, SVG_H = 240, GROUND_Y = 168;
+const TOTAL_SESSIONS = 8, HITS_TO_BREAK = 4;
+
+// ═══════════════════════════════════════════
+// PERSISTENCE
+// ═══════════════════════════════════════════
+const saved = JSON.parse(localStorage.getItem('pomodocraft') || '{}');
+let focusMin = saved.focusMin || 25;
+let breakMin = saved.breakMin || 5;
+let completedSessions = saved.sessions || 0;
+let blocksMined = 0;
+let alarmEnabled = saved.alarmEnabled !== false;
+let lofiEnabled = saved.lofiEnabled || false;
+const lofiUrl = 'https://youtu.be/BrG_9l_fD-I';
+let autoBreak = saved.autoBreak || false;  // auto-start break after focus ends
+let autoFocus = saved.autoFocus || false;  // auto-start focus after break ends
+
+function todayKey() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+function loadDaily() {
+  const d = JSON.parse(localStorage.getItem('pomodocraft_daily') || '{}');
+  if (d.date !== todayKey()) return { date: todayKey(), sessions: 0, focusMin: 0, breakMin: 0, blocks: 0 };
+  return d;
+}
+function saveDaily(data) {
+  data.date = todayKey();
+  localStorage.setItem('pomodocraft_daily', JSON.stringify(data));
+}
+let daily = loadDaily();
+
+function recordSession(type, minutes) {
+  daily = loadDaily();
+  if (type === 'focus') { daily.sessions++; daily.focusMin += minutes; }
+  else { daily.breakMin += minutes; }
+  saveDaily(daily);
+  renderDailyStats();
+}
+function recordBlocks(count) {
+  daily = loadDaily();
+  daily.blocks += count;
+  saveDaily(daily);
+  renderDailyStats();
+}
+
+function renderDailyStats() {
+  const el = document.getElementById('dailyStats');
+  const d = loadDaily();
+  const dateStr = d.date.replace(/-/g, '.');
+  el.innerHTML = `
+    <div class="stat-date">TODAY ${dateStr}</div>
+    <div class="stat">SESSIONS <b>${d.sessions}</b></div>
+    <div class="stat">FOCUS <b>${d.focusMin}</b>M</div>
+    <div class="stat">BREAK <b>${d.breakMin}</b>M</div>
+    <div class="stat">BLOCKS <b>${d.blocks}</b></div>
+  `;
+}
+
+function saveState() {
+  localStorage.setItem('pomodocraft', JSON.stringify({
+    focusMin, breakMin, sessions: completedSessions,
+    alarmEnabled, lofiEnabled,
+    autoBreak, autoFocus,
+  }));
+}
+
+// ═══════════════════════════════════════════
+// COLORS
+// ═══════════════════════════════════════════
+const C = {
+  hair: '#4A2F0A', hairLight: '#6B4423',
+  skin: '#C69C6D', skinShadow: '#A07850', eyes: '#3B2213',
+  shirt: '#00AAAA', shirtDark: '#007878',
+  pants: '#1B1BB3', pantsDark: '#00007B', shoe: '#444',
+  grassTop: '#5B8731', grassSide: '#8DB360',
+  dirt: '#866043', dirtDark: '#6B4423',
+  stone: '#808080', stoneDark: '#606060', stoneLight: '#A0A0A0',
+  wood: '#6B4423', woodLight: '#9C7C50', woodDark: '#4A2F1A',
+  leaves: '#2D5A27', leavesBright: '#4A8A3A',
+  diamondOre: '#2CB9A8', diamondLight: '#5CE8D8',
+  fire1: '#FF6600', fire2: '#FF9900', fire3: '#FFCC00',
+  moon: '#E8E8D0', moonDark: '#C8C8B0',
+  creeperG: '#4EA54E',
+  wolfW: '#DDD', wolfG: '#BBB', wolfE: '#333',
+  chickenW: '#F0F0F0', chickenR: '#CC3333', chickenY: '#DDAA00',
+  crack: 'rgba(0,0,0,0.45)',
+  star: '#FFFF88', firefly: '#AAFF44',
+};
+
+// ═══════════════════════════════════════════
+// SVG HELPERS
+// ═══════════════════════════════════════════
+const NS = 'http://www.w3.org/2000/svg';
+function el(tag, attrs={}) { const e = document.createElementNS(NS, tag); for (const [k,v] of Object.entries(attrs)) e.setAttribute(k,v); return e; }
+function rect(x,y,w,h,fill,parent) { const r = el('rect',{x,y,width:w,height:h,fill}); if(parent) parent.appendChild(r); return r; }
+function renderSprite(data, colorMap, ox, oy, scale, parent) {
+  const g = el('g', { transform:`translate(${ox},${oy})` });
+  data.forEach((row,ry) => [...row].forEach((ch,rx) => {
+    if (ch==='.' || !colorMap[ch]) return;
+    rect(rx*scale, ry*scale, scale, scale, colorMap[ch], g);
+  }));
+  if (parent) parent.appendChild(g);
+  return g;
+}
+
+// ═══════════════════════════════════════════
+// SPRITE DATA
+// ═══════════════════════════════════════════
+const CHAR = { H:C.hair, h:C.hairLight, S:C.skin, s:C.skinShadow, E:C.eyes, T:C.shirt, t:C.shirtDark, P:C.pants, p:C.pantsDark, X:C.shoe };
+
+const STEVE_BODY = [
+  '..hHHHh.', '.HHHHHHH', '.HSSSSsH', '..SESES.',
+  '..SSSSS.', '...SSS..', '..TTTTT.', '.tTTTTT.',
+  '.STTTTT.', '..tTTt..', '..PPPP..', '..PPPP..',
+];
+const LEG_WALK1 = ['.PP..PP.','.XX..XX.'];
+const LEG_WALK2 = ['..PPPP..','..XXXX..'];
+const LEG_STAND = ['..Pp.pP.','..XX.XX.'];
+const STEVE_SIT_BODY = [
+  '..hHHHh.', '.HHHHHHH', '.HSSSSsH', '..SESES.',
+  '..SSSSS.', '...SSS..', '..TTTTT.', '.STTTTS.',
+  '.STTTTS.', '..tTTt..',
+];
+const STEVE_SIT_LEGS = ['..PPPPPP','..PPPPPP','..XX.XX.'];
+
+// Steve blink (eyes closed)
+const STEVE_BLINK_BODY = [
+  '..hHHHh.', '.HHHHHHH', '.HSSSSsH', '..SSSS..',
+  '..SSSSS.', '...SSS..', '..TTTTT.', '.tTTTTT.',
+  '.STTTTT.', '..tTTt..', '..PPPP..', '..PPPP..',
+];
+
+const PICK_HANDLE = ['.S','.W','.W','.W','.W','DI','IG'];
+const PICK_COLORS = { S:C.skin, W:C.wood, D:C.stoneDark, I:C.stoneLight, G:C.stone };
+
+const ORE_BLOCK = ['ssssssss','sSSdSSSs','sSSOSSSs','sdSSSSOs','sSSSOSSs','sOSSSSSs','sSSSdSOs','ssssssss'];
+const ORE_COLORS = { s:C.stoneDark, S:C.stone, d:C.stoneLight, O:C.diamondOre };
+
+const CRACK_STAGES = [
+  ['........','........','..C.....','...C....','........','........','........','........'],
+  ['........','.C......','..CC....','...C....','....C...','........','......C.','........'],
+  ['..C.....','.CC.....','..CCC...','...C.C..','...CC...','..C..C..','......C.','........'],
+  ['.CC..C..','CCC.CC..','..CCC.C.','...C.CC.','..CCCC..','CC..CCC.','.CC..CC.','....C.C.'],
+];
+const CRACK_COLORS = { C:C.crack };
+
+const DIAMOND_ITEM = ['..D.','.DdD','DdDD','.DD.'];
+const DIAMOND_COLORS = { D:C.diamondOre, d:C.diamondLight };
+
+const CREEPER = ['GGGGGG','GGGGGG','GEEGEG','GGGGGG','GGMEGG','GGMMGG','GGGGGG','.GGGG.'];
+const CREEPER_COLORS = { G:C.creeperG, E:'#000', M:'#000' };
+
+const CHICKEN_R = ['..WW..', '.WRWW.', '.WWWW.', '..WW..', '..YY..', '.Y..Y.'];
+const CHICKEN_COLORS = { W:C.chickenW, R:C.chickenR, Y:C.chickenY };
+
+const WOLF1 = ['.WW.WW','WWWWWW','WEWWEW','.WWWW.','.GWWG.','.WWWW.','.WW.WW'];
+const WOLF2 = ['.WW.WW','WWWWWW','WEWWEW','.WWWW.','.GWWG.','WWWWW.','.WW.WW'];  // tail wag
+const WOLF_COLORS = { W:C.wolfW, G:C.wolfG, E:C.wolfE };
+
+// ═══════════════════════════════════════════
+// SCENE STATE
+// ═══════════════════════════════════════════
+const svg = document.getElementById('scene');
+let sceneMode = 'idle';
+
+// Element refs
+let steveGroup, steveBodyG, steveLegsG, steveArmG;
+let oreBlockG, crackOverlayG, blockShakeG;
+let sunG, moonG, focusLayerG, breakLayerG;
+let campfireG, wolfG, chickenG, creeperG;
+let particleLayer, itemLayer;
+
+// Animation state
+let animRunning = false, lastFrameTime = 0;
+let swingTime = 0, swingActive = false, swingSpeed = 3.5;
+let blockHP = HITS_TO_BREAK, prevSwingHalf = 0;
+let walkPhase = 0, walkTime = 0;
+let steveX = 200, steveJumpY = 0;
+let blinkTimer = 0, isBlinking = false;
+let jumpTimer = 0, isJumping = false, jumpVelocity = 0;
+let celebrateTimer = -1;
+
+const STEVE_MINE_X = 220, STEVE_IDLE_X = 180, ORE_X = 296, ORE_Y = GROUND_Y - 64;
+
+// Break state
+let chickenX = -40, chickenDir = 1, chickenVisible = false;
+let creeperPeekTime = 0, creeperVisible = false;
+let zzzTime = 0, wolfFrame = 0, wolfTimer = 0;
+let fireflyList = [];
+let stretchTimer = 0, isStretching = false;
+let sessionBlocksMined = 0;  // blocks mined in current focus session
+
+// ═══════════════════════════════════════════
+// BUILD SCENE
+// ═══════════════════════════════════════════
+function buildScene() {
+  svg.innerHTML = '';
+  const bgLayer = el('g');
+  svg.appendChild(bgLayer);
+
+  // Ground
+  for (let x = 0; x < SVG_W; x += P) {
+    rect(x, GROUND_Y, P, P, (x/P)%7===0 ? C.grassSide : C.grassTop, bgLayer);
+    for (let row = 1; row < 10; row++)
+      rect(x, GROUND_Y+row*P, P, P, (x+row*3)%5===0 ? C.dirtDark : C.dirt, bgLayer);
+  }
+
+  // Clouds
+  buildCloud(bgLayer, 60, 25, 50);
+  buildCloud(bgLayer, 280, 18, 70);
+
+  // Sun
+  sunG = el('g');
+  renderSprite(['..YY..','.YYYY.','YYYYYY','YYYYYY','.YYYY.','..YY..'], {Y:'#FFD700'}, 390, 25, 6, sunG);
+  [[386,38,8,3],[410,38,8,3],[398,16,3,8],[398,55,3,8]].forEach(([rx,ry,rw,rh]) => rect(rx,ry,rw,rh,'#FFD700',sunG));
+  svg.appendChild(sunG);
+
+  // Moon
+  moonG = el('g', {opacity:0});
+  renderSprite(['..MM..','.MMMM.','MMMMMM','MMmmMM','.MmMM.','..MM..'], {M:C.moon,m:C.moonDark}, 100, 25, 7, moonG);
+  svg.appendChild(moonG);
+
+  // Trees
+  buildTree(bgLayer, 30);
+  buildTree(bgLayer, 410);
+
+  // Focus layer
+  focusLayerG = el('g');
+  svg.appendChild(focusLayerG);
+  blockShakeG = el('g');
+  oreBlockG = renderSprite(ORE_BLOCK, ORE_COLORS, ORE_X, ORE_Y, P, blockShakeG);
+  crackOverlayG = el('g');
+  blockShakeG.appendChild(crackOverlayG);
+  focusLayerG.appendChild(blockShakeG);
+
+  // Creeper
+  creeperG = el('g', {opacity:0});
+  renderSprite(CREEPER, CREEPER_COLORS, 428, GROUND_Y-56, 5, creeperG);
+  focusLayerG.appendChild(creeperG);
+
+  // Break layer
+  breakLayerG = el('g', {opacity:0});
+  svg.appendChild(breakLayerG);
+  campfireG = el('g');
+  buildCampfire(campfireG, 290, GROUND_Y-24);
+  breakLayerG.appendChild(campfireG);
+
+  // Wolf
+  wolfG = el('g');
+  renderSprite(WOLF1, WOLF_COLORS, 0, 0, 6, wolfG);
+  wolfG.setAttribute('transform', `translate(340,${GROUND_Y-48})`);
+  breakLayerG.appendChild(wolfG);
+
+  // Chicken
+  chickenG = el('g', {opacity:0});
+  renderSprite(CHICKEN_R, CHICKEN_COLORS, 0, 0, 5, chickenG);
+  breakLayerG.appendChild(chickenG);
+
+  // Steve (composite)
+  steveGroup = el('g');
+  svg.appendChild(steveGroup);
+  steveBodyG = el('g');
+  renderSprite(STEVE_BODY, CHAR, 0, 0, P, steveBodyG);
+  steveGroup.appendChild(steveBodyG);
+  steveLegsG = el('g');
+  renderSprite(LEG_STAND, CHAR, 0, STEVE_BODY.length*P, P, steveLegsG);
+  steveGroup.appendChild(steveLegsG);
+  steveArmG = el('g', {opacity:0});
+  renderSprite(PICK_HANDLE, PICK_COLORS, 0, 0, P, steveArmG);
+  steveGroup.appendChild(steveArmG);
+
+  positionSteve();
+
+  // Effect layers
+  itemLayer = el('g'); svg.appendChild(itemLayer);
+  particleLayer = el('g'); svg.appendChild(particleLayer);
+
+  updateSceneMode(sceneMode);
+}
+
+function buildCloud(parent, x, y, w) {
+  const g = el('g', {opacity:'0.85'});
+  [[Math.floor(w*.2),w*.6],[0,w],[Math.floor(w*.1),w*.8]].forEach(([ox,rw],i) =>
+    rect(x+ox, y+i*6, rw, 6, '#FFF', g));
+  g.appendChild(el('animateTransform', {
+    attributeName:'transform', type:'translate', from:'0,0', to:'-480,0',
+    dur:`${80+x*.2}s`, repeatCount:'indefinite'
+  }));
+  parent.appendChild(g);
+}
+
+function buildTree(parent, x) {
+  const g = el('g');
+  for (let i=0;i<4;i++) rect(x+P, GROUND_Y-(i+1)*P, P, P, i%2===0?C.wood:C.woodLight, g);
+  [[1,3],[0,4],[0,4],[1,3],[1,2]].forEach(([s,cnt],row) => {
+    for (let i=0;i<cnt;i++) rect(x+(s+i-1)*P, GROUND_Y-(8-row)*P, P, P, (row+i)%3===0?C.leavesBright:C.leaves, g);
+  });
+  parent.appendChild(g);
+}
+
+function buildCampfire(parent, x, y) {
+  [[0,0,C.wood],[1,0,C.woodLight],[2,0,C.wood],[3,0,C.woodDark],
+   [0,1,C.woodLight],[1,1,C.wood],[2,1,C.woodDark],[3,1,C.wood]].forEach(([bx,by,c]) =>
+    rect(x+bx*P, y+by*P, P, P, c, parent));
+  // Base flames
+  [[0.5,-1,C.fire1],[1.5,-1,C.fire3],[2.5,-1,C.fire1],
+   [1,-2,C.fire2],[2,-2,C.fire2],[1.5,-3,C.fire3]].forEach(([fx,fy,fc]) => {
+    const f = rect(x+fx*P, y+fy*P, P, P, fc, parent);
+    f.style.animation = `${Math.random()>.5?'flicker1':'flicker2'} ${.3+Math.random()*.3}s infinite alternate`;
+  });
+}
+
+// ═══════════════════════════════════════════
+// SCENE MODE
+// ═══════════════════════════════════════════
+function updateSceneMode(mode) {
+  sceneMode = mode;
+  if (mode === 'break') {
+    sunG.setAttribute('opacity', 0);
+    moonG.setAttribute('opacity', 1);
+    focusLayerG.setAttribute('opacity', 0);
+    breakLayerG.setAttribute('opacity', 1);
+    steveArmG.setAttribute('opacity', 0);
+    steveX = 240;
+    updateSteveSprite('sit');
+    chickenX = -40; chickenVisible = false;
+    wolfFrame = 0; fireflyList = [];
+    startAnimLoop();
+  } else {
+    sunG.setAttribute('opacity', 1);
+    moonG.setAttribute('opacity', 0);
+    focusLayerG.setAttribute('opacity', 1);
+    breakLayerG.setAttribute('opacity', 0);
+    if (mode === 'focus') {
+      steveX = STEVE_MINE_X;
+      steveArmG.setAttribute('opacity', 1);
+      updateSteveSprite('stand');
+      swingActive = true;
+      blockHP = HITS_TO_BREAK;
+      sessionBlocksMined = 0;
+      updateCrack();
+    } else {
+      steveX = STEVE_IDLE_X;
+      steveArmG.setAttribute('opacity', 0);
+      swingActive = false;
+      stopAnimLoop();
+      updateSteveSprite('stand');
+    }
+  }
+  positionSteve();
+}
+
+// ═══════════════════════════════════════════
+// STEVE RENDERING
+// ═══════════════════════════════════════════
+let currentPose = 'stand';
+
+function updateSteveSprite(pose) {
+  currentPose = pose;
+  steveBodyG.innerHTML = '';
+  steveLegsG.innerHTML = '';
+  if (pose === 'sit' || pose === 'stretch') {
+    const body = pose === 'stretch' ? [
+      '..hHHHh.', '.HHHHHHH', '.HSSSSsH', '..SESES.',
+      '..SSSSS.', '..SSSSS.', // arms raised
+      'S.TTTTT.S', '.STTTTS.',
+      '..TTTT..', '..tTTt..',
+    ] : STEVE_SIT_BODY;
+    renderSprite(body, CHAR, 0, 0, P, steveBodyG);
+    renderSprite(STEVE_SIT_LEGS, CHAR, 0, body.length*P, P, steveLegsG);
+  } else if (pose === 'blink') {
+    renderSprite(STEVE_BLINK_BODY, CHAR, 0, 0, P, steveBodyG);
+    renderSprite(LEG_STAND, CHAR, 0, STEVE_BODY.length*P, P, steveLegsG);
+  } else {
+    renderSprite(STEVE_BODY, CHAR, 0, 0, P, steveBodyG);
+    const legData = pose==='walk1'?LEG_WALK1:pose==='walk2'?LEG_WALK2:LEG_STAND;
+    renderSprite(legData, CHAR, 0, STEVE_BODY.length*P, P, steveLegsG);
+  }
+}
+
+function positionSteve() {
+  const bodyH = (currentPose==='sit'||currentPose==='stretch') ? 13 : (STEVE_BODY.length+2);
+  steveGroup.setAttribute('transform', `translate(${steveX},${GROUND_Y - bodyH*P - steveJumpY})`);
+}
+
+// ═══════════════════════════════════════════
+// ANIMATION LOOP
+// ═══════════════════════════════════════════
+function startAnimLoop() { if (animRunning) return; animRunning = true; lastFrameTime = performance.now(); requestAnimationFrame(animTick); }
+function stopAnimLoop() { animRunning = false; }
+
+function animTick(now) {
+  if (!animRunning) return;
+  const dt = Math.min((now - lastFrameTime) / 1000, 0.1);
+  lastFrameTime = now;
+
+  if (sceneMode === 'focus') {
+    updateMining(dt);
+    updateCreeper(dt);
+    updateSteveJump(dt);
+    updateSteveBlink(dt);
+  } else if (sceneMode === 'break') {
+    updateBreakScene(dt);
+    updateSteveBlink(dt);
+  }
+  requestAnimationFrame(animTick);
+}
+
+// ═══════════════════════════════════════════
+// STEVE: BLINK
+// ═══════════════════════════════════════════
+function updateSteveBlink(dt) {
+  blinkTimer += dt;
+  if (!isBlinking && blinkTimer > 3 + Math.random() * 4) {
+    isBlinking = true;
+    blinkTimer = 0;
+    if (currentPose === 'stand' || currentPose === 'walk1' || currentPose === 'walk2') {
+      updateSteveSprite('blink');
+    }
+  }
+  if (isBlinking && blinkTimer > 0.15) {
+    isBlinking = false;
+    blinkTimer = 0;
+    if (currentPose === 'blink') updateSteveSprite('stand');
+  }
+}
+
+// ═══════════════════════════════════════════
+// STEVE: JUMP (during mining)
+// ═══════════════════════════════════════════
+function triggerJump(force = 120) {
+  if (isJumping) return;
+  isJumping = true;
+  jumpVelocity = force;
+}
+
+function updateSteveJump(dt) {
+  jumpTimer += dt;
+
+  // Randomly jump every ~7 seconds during mining
+  if (!isJumping && swingActive && jumpTimer > 6 + Math.random() * 4) {
+    triggerJump(100);
+    jumpTimer = 0;
+  }
+
+  if (isJumping) {
+    steveJumpY += jumpVelocity * dt;
+    jumpVelocity -= 400 * dt; // gravity
+    if (steveJumpY <= 0) {
+      steveJumpY = 0;
+      isJumping = false;
+      jumpVelocity = 0;
+      // Land particles
+      spawnParticles(steveX + 28, GROUND_Y - 4, [C.grassTop, C.dirt, C.grassSide], 4);
+    }
+    positionSteve();
+  }
+}
+
+// ═══════════════════════════════════════════
+// MINING SYSTEM
+// ═══════════════════════════════════════════
+function updateMining(dt) {
+  if (!swingActive) return;
+
+  // Celebration pause after block break
+  if (celebrateTimer > 0) {
+    celebrateTimer -= dt;
+    if (celebrateTimer <= 0) {
+      celebrateTimer = -1;
+      blockHP = HITS_TO_BREAK;
+      oreBlockG.setAttribute('opacity', 1);
+      updateCrack();
+    }
+    return;
+  }
+
+  swingTime += dt;
+  const cycle = swingTime * swingSpeed;
+  const sinVal = Math.sin(cycle * Math.PI * 2);
+  const angle = -27.5 + sinVal * 42.5;
+  const currentHalf = sinVal > 0 ? 1 : 0;
+
+  if (currentHalf === 1 && prevSwingHalf === 0) onPickaxeHit();
+  prevSwingHalf = currentHalf;
+
+  // Arm rotation
+  const pivotX = 6 * P, pivotY = 7 * P;
+  steveArmG.setAttribute('transform', `translate(${pivotX},${pivotY}) rotate(${angle})`);
+
+  // Body bounce
+  const bounce = Math.abs(sinVal) * 3;
+  if (!isJumping) {
+    steveJumpY = bounce;
+    positionSteve();
+  }
+
+  // Leg animation
+  walkTime += dt;
+  const newPhase = Math.floor(walkTime * 3) % 2;
+  if (newPhase !== walkPhase && !isBlinking) {
+    walkPhase = newPhase;
+    steveLegsG.innerHTML = '';
+    renderSprite(walkPhase===0 ? LEG_WALK1 : LEG_WALK2, CHAR, 0, STEVE_BODY.length*P, P, steveLegsG);
+  }
+}
+
+function onPickaxeHit() {
+  blockHP--;
+  // Block shake
+  blockShakeG.animate([
+    {transform:'translate(0,0)'},{transform:'translate(4,0)'},
+    {transform:'translate(-4,0)'},{transform:'translate(2,0)'},{transform:'translate(0,0)'}
+  ], {duration:150});
+
+  spawnParticles(ORE_X+32, ORE_Y+32, [C.stone,C.stoneDark,C.stoneLight,C.diamondOre], 6);
+
+  if (blockHP <= 0) onBlockBreak();
+  else updateCrack();
+}
+
+function onBlockBreak() {
+  // Big explosion
+  spawnParticles(ORE_X+32, ORE_Y+32, [C.stone,C.stoneDark,C.diamondOre,C.diamondLight,'#FFF'], 20);
+  dropItem(ORE_X+24, ORE_Y);
+
+  oreBlockG.setAttribute('opacity', 0);
+  crackOverlayG.innerHTML = '';
+
+  blocksMined++;
+  sessionBlocksMined++;
+
+  // Update daily record every 10 blocks
+  if (sessionBlocksMined % 10 === 0) recordBlocks(10);
+
+  // Celebration: Steve jumps!
+  triggerJump(150);
+  // Star sparkles around Steve
+  spawnStars(steveX + 30, GROUND_Y - 80, 6);
+
+  celebrateTimer = 1.2;
+}
+
+function updateCrack() {
+  crackOverlayG.innerHTML = '';
+  const stage = HITS_TO_BREAK - blockHP;
+  if (stage > 0 && stage <= CRACK_STAGES.length)
+    renderSprite(CRACK_STAGES[stage-1], CRACK_COLORS, ORE_X, ORE_Y, P, crackOverlayG);
+}
+
+// ═══════════════════════════════════════════
+// PARTICLES & ITEMS
+// ═══════════════════════════════════════════
+function spawnParticles(cx, cy, colors, count) {
+  for (let i = 0; i < count; i++) {
+    const p = el('rect', { x:cx, y:cy, width:5, height:5, fill:colors[i%colors.length] });
+    const dx = (Math.random()-.5) * 80, dy = -Math.random()*50 - 10;
+    p.animate([
+      {transform:'translate(0,0)',opacity:1},
+      {transform:`translate(${dx}px,${dy}px)`,opacity:0}
+    ], {duration:600+Math.random()*300, fill:'forwards'});
+    particleLayer.appendChild(p);
+    setTimeout(() => p.remove(), 1000);
+  }
+}
+
+function spawnStars(cx, cy, count) {
+  for (let i = 0; i < count; i++) {
+    const s = el('text', {
+      x: cx + (Math.random()-.5)*50, y: cy + (Math.random()-.5)*40,
+      fill: C.star, 'font-size': 8 + Math.random()*6, 'font-family':'Press Start 2P'
+    });
+    s.textContent = '✦';
+    const dx = (Math.random()-.5)*30, dy = -20 - Math.random()*30;
+    s.animate([
+      {transform:'translate(0,0) scale(1)',opacity:1},
+      {transform:`translate(${dx}px,${dy}px) scale(0.3)`,opacity:0}
+    ], {duration:800+Math.random()*400, fill:'forwards'});
+    particleLayer.appendChild(s);
+    setTimeout(() => s.remove(), 1300);
+  }
+}
+
+function dropItem(x, y) {
+  const item = el('g');
+  renderSprite(DIAMOND_ITEM, DIAMOND_COLORS, 0, 0, 5, item);
+  itemLayer.appendChild(item);
+  const endY = GROUND_Y - 20;
+  let t = 0;
+  const anim = () => {
+    t += 0.03;
+    if (t > 3) { item.animate([{opacity:1},{opacity:0}],{duration:300,fill:'forwards'}); setTimeout(()=>item.remove(),400); return; }
+    if (t > 1.5) {
+      item.setAttribute('transform',`translate(${x},${endY+Math.sin(t*4)*5-5})`);
+    } else {
+      const p = Math.min(t,1);
+      const by = y + (endY-y)*p - Math.abs(Math.sin(p*Math.PI*2))*30*(1-p);
+      item.setAttribute('transform',`translate(${x},${by})`);
+    }
+    requestAnimationFrame(anim);
+  };
+  anim();
+}
+
+// ═══════════════════════════════════════════
+// CREEPER
+// ═══════════════════════════════════════════
+function updateCreeper(dt) {
+  creeperPeekTime += dt;
+  if (!creeperVisible && creeperPeekTime > 10 + Math.random()*15) {
+    creeperVisible = true; creeperPeekTime = 0;
+    creeperG.setAttribute('opacity', 1);
+    creeperG.animate([{transform:'translateX(20px)'},{transform:'translateX(0)'}], {duration:500});
+  }
+  if (creeperVisible && creeperPeekTime > 2 + Math.random()*2) {
+    creeperVisible = false; creeperPeekTime = 0;
+    creeperG.animate([{transform:'translateX(0)',opacity:1},{transform:'translateX(20px)',opacity:0}], {duration:400,fill:'forwards'});
+    setTimeout(() => creeperG.setAttribute('opacity',0), 500);
+  }
+}
+
+// ═══════════════════════════════════════════
+// BREAK MODE ANIMATIONS
+// ═══════════════════════════════════════════
+function updateBreakScene(dt) {
+  updateCampfireEffects(dt);
+  updateZzz(dt);
+  updateChicken(dt);
+  updateWolf(dt);
+  updateFireflies(dt);
+  updateStretch(dt);
+}
+
+function updateCampfireEffects(dt) {
+  if (Math.random() < dt*8) {
+    const flame = rect(290+Math.random()*24, GROUND_Y-24, P, P,
+      [C.fire1,C.fire2,C.fire3][Math.floor(Math.random()*3)], breakLayerG);
+    flame.animate([
+      {transform:'translateY(0)',opacity:1},
+      {transform:`translateY(-${20+Math.random()*20}px)`,opacity:0}
+    ],{duration:400+Math.random()*400,fill:'forwards'});
+    setTimeout(()=>flame.remove(),900);
+  }
+  if (Math.random() < dt*2) {
+    const ember = rect(296+Math.random()*16, GROUND_Y-30, 3, 3,
+      Math.random()>.5?C.fire3:C.fire2, breakLayerG);
+    ember.animate([
+      {transform:'translate(0,0)',opacity:.8},
+      {transform:`translate(${(Math.random()-.5)*30}px,-60px)`,opacity:0}
+    ],{duration:1500,fill:'forwards'});
+    setTimeout(()=>ember.remove(),1600);
+  }
+}
+
+function updateZzz(dt) {
+  zzzTime += dt;
+  if (zzzTime > 2.5) {
+    zzzTime = 0;
+    const t = el('text', {
+      x:steveX+55, y:GROUND_Y-90, fill:'#AAF',
+      'font-size':'12', 'font-family':'Press Start 2P', opacity:.8
+    });
+    t.textContent = 'z';
+    svg.appendChild(t);
+    t.animate([
+      {transform:'translate(0,0) scale(1)',opacity:.8},
+      {transform:`translate(${10+Math.random()*15}px,-40px) scale(1.5)`,opacity:0}
+    ],{duration:2000,fill:'forwards'});
+    setTimeout(()=>t.remove(),2100);
+  }
+}
+
+function updateChicken(dt) {
+  if (!chickenVisible) {
+    if (Math.random() < dt*.12) {
+      chickenVisible = true;
+      chickenDir = Math.random()>.5 ? 1 : -1;
+      chickenX = chickenDir>0 ? -30 : SVG_W+30;
+      chickenG.setAttribute('opacity',1);
+    }
+    return;
+  }
+  chickenX += chickenDir * 35 * dt;
+  const bob = Math.sin(chickenX*.3) * 3;
+  chickenG.setAttribute('transform',`translate(${chickenX},${GROUND_Y-30+bob}) scale(${chickenDir>0?1:-1},1)`);
+  if ((chickenDir>0 && chickenX>SVG_W+40) || (chickenDir<0 && chickenX<-40)) {
+    chickenVisible = false; chickenG.setAttribute('opacity',0);
+  }
+}
+
+function updateWolf(dt) {
+  wolfTimer += dt;
+  if (wolfTimer > 0.8) {
+    wolfTimer = 0;
+    wolfFrame = 1 - wolfFrame;
+    wolfG.innerHTML = '';
+    renderSprite(wolfFrame===0 ? WOLF1 : WOLF2, WOLF_COLORS, 0, 0, 6, wolfG);
+    wolfG.setAttribute('transform', `translate(340,${GROUND_Y-48})`);
+  }
+}
+
+function updateFireflies(dt) {
+  // Spawn fireflies
+  if (fireflyList.length < 5 && Math.random() < dt * 0.5) {
+    const ff = {
+      x: 50 + Math.random() * 380,
+      y: 40 + Math.random() * 100,
+      vx: (Math.random()-.5) * 20,
+      vy: (Math.random()-.5) * 15,
+      life: 3 + Math.random() * 4,
+      el: null,
+    };
+    ff.el = rect(ff.x, ff.y, 4, 4, C.firefly, svg);
+    ff.el.style.opacity = 0.7;
+    fireflyList.push(ff);
+  }
+  // Update
+  for (let i = fireflyList.length-1; i >= 0; i--) {
+    const ff = fireflyList[i];
+    ff.life -= dt;
+    ff.vx += (Math.random()-.5) * 40 * dt;
+    ff.vy += (Math.random()-.5) * 30 * dt;
+    ff.x += ff.vx * dt;
+    ff.y += ff.vy * dt;
+    // Flicker
+    ff.el.style.opacity = 0.3 + Math.sin(ff.life * 8) * 0.4;
+    ff.el.setAttribute('x', ff.x);
+    ff.el.setAttribute('y', ff.y);
+    if (ff.life <= 0 || ff.x < 0 || ff.x > SVG_W || ff.y < 0 || ff.y > GROUND_Y) {
+      ff.el.remove();
+      fireflyList.splice(i, 1);
+    }
+  }
+}
+
+function updateStretch(dt) {
+  stretchTimer += dt;
+  if (!isStretching && stretchTimer > 8 + Math.random()*6) {
+    isStretching = true;
+    stretchTimer = 0;
+    // Steve stretches: briefly change body
+    steveBodyG.innerHTML = '';
+    steveLegsG.innerHTML = '';
+    const stretchBody = [
+      '..hHHHh.', '.HHHHHHH', '.HSSSSsH', '..SESES.',
+      '..SSSSS.', 'S.SSS..S', 'S.TTTTT.S', '.STTTTS.',
+      '..TTTT..', '..tTTt..',
+    ];
+    renderSprite(stretchBody, {...CHAR}, 0, 0, P, steveBodyG);
+    renderSprite(STEVE_SIT_LEGS, CHAR, 0, stretchBody.length*P, P, steveLegsG);
+  }
+  if (isStretching && stretchTimer > 1.5) {
+    isStretching = false;
+    stretchTimer = 0;
+    updateSteveSprite('sit');
+  }
+}
+
+// ═══════════════════════════════════════════
+// STARS (background)
+// ═══════════════════════════════════════════
+function createStars() {
+  const c = document.getElementById('stars');
+  for (let i=0;i<60;i++) {
+    const s = document.createElement('div');
+    s.className = 'star';
+    s.style.left = Math.random()*100+'%';
+    s.style.top = Math.random()*60+'%';
+    s.style.animationDelay = Math.random()*2+'s';
+    s.style.width = s.style.height = (Math.random()>.7?6:4)+'px';
+    c.appendChild(s);
+  }
+}
+
+// ═══════════════════════════════════════════
+// UI: PROGRESS, HOTBAR
+// ═══════════════════════════════════════════
+const PROGRESS_BLOCKS = 20;
+const progressBar = document.getElementById('progressBar');
+function buildProgressBar() {
+  progressBar.innerHTML = '';
+  for (let i=0;i<PROGRESS_BLOCKS;i++) { const b=document.createElement('div'); b.className='progress-block'; progressBar.appendChild(b); }
+}
+function updateProgress(fraction) {
+  [...progressBar.children].forEach((b,i) => {
+    const filled = Math.floor(fraction*PROGRESS_BLOCKS);
+    b.classList.toggle('filled', i<filled);
+    b.classList.toggle('active', i===filled && fraction<1);
+  });
+}
+
+const hotbar = document.getElementById('hotbar');
+function buildHotbar() {
+  hotbar.innerHTML = '';
+  for (let i=0;i<TOTAL_SESSIONS;i++) {
+    const slot = document.createElement('div');
+    slot.className = 'hotbar-slot'+(i<completedSessions?' active':'');
+    if (i<completedSessions)
+      slot.innerHTML = `<svg viewBox="0 0 16 16"><polygon points="8,1 15,6 8,15 1,6" fill="${C.diamondOre}" stroke="#1A8A7A" stroke-width="1"/><polygon points="8,1 11,6 8,10 5,6" fill="${C.diamondLight}" opacity="0.5"/></svg>`;
+    hotbar.appendChild(slot);
+  }
+}
+
+// ═══════════════════════════════════════════
+// TIMER LOGIC
+// ═══════════════════════════════════════════
+let timerState = 'idle', timerMode = 'focus';
+let totalSeconds = focusMin*60, remainingSeconds = totalSeconds, timerInterval = null;
+const timerDisplay = document.getElementById('timerDisplay');
+const modeLabel = document.getElementById('modeLabel');
+const subtitleText = document.getElementById('subtitleText');
+const startBtn = document.getElementById('startBtn');
+
+function formatTime(s) { return `${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`; }
+function updateDisplay() {
+  timerDisplay.textContent = formatTime(remainingSeconds);
+  updateProgress(1 - remainingSeconds/totalSeconds);
+  document.title = `${formatTime(remainingSeconds)} - Pomodoro Craft`;
+}
+
+function setMode(mode) {
+  timerMode = mode;
+  document.body.setAttribute('data-mode', mode);
+  if (mode==='focus') {
+    totalSeconds=focusMin*60; modeLabel.textContent='FOCUS'; subtitleText.textContent='FOCUS TIME';
+    hideLofiPlayer();
+  } else {
+    totalSeconds=breakMin*60; modeLabel.textContent='BREAK'; subtitleText.textContent='BREAK TIME';
+    showLofiPlayer();
+  }
+  remainingSeconds = totalSeconds;
+  updateDisplay();
+  updateSceneMode(timerState==='running' ? mode : (mode==='break' ? 'break' : 'idle'));
+}
+
+function startTimer() {
+  if (timerState==='running') {
+    timerState='paused'; clearInterval(timerInterval);
+    startBtn.textContent='RESUME'; swingActive=false; stopAnimLoop();
+    return;
+  }
+  timerState='running'; startBtn.textContent='PAUSE';
+  updateSceneMode(timerMode); startAnimLoop();
+
+  timerInterval = setInterval(() => {
+    remainingSeconds--;
+    updateDisplay();
+    if (remainingSeconds<=0) {
+      clearInterval(timerInterval); timerInterval=null;
+      timerState='idle'; stopAnimLoop(); swingActive=false;
+      startBtn.textContent='START';
+      playSound(timerMode==='focus'?'complete':'break_end');
+
+      // Record remaining blocks mined
+      if (timerMode==='focus') {
+        recordSession('focus', focusMin);
+        if (sessionBlocksMined % 10 !== 0) recordBlocks(sessionBlocksMined % 10);
+        completedSessions++; saveState(); buildHotbar();
+        if (completedSessions>=TOTAL_SESSIONS) { completedSessions=0; saveState(); buildHotbar(); }
+        setMode('break');
+        if (autoBreak) setTimeout(() => startTimer(), 1500);
+      } else {
+        recordSession('break', breakMin);
+        setMode('focus');
+        if (autoFocus) setTimeout(() => startTimer(), 1500);
+      }
+    }
+  }, 1000);
+}
+
+function skipTimer() {
+  clearInterval(timerInterval); timerInterval=null;
+  timerState='idle'; stopAnimLoop(); swingActive=false;
+  startBtn.textContent='START';
+  if (timerMode==='focus') setMode('break'); else setMode('focus');
+}
+
+function resetTimer() {
+  clearInterval(timerInterval); timerInterval=null;
+  timerState='idle'; stopAnimLoop(); swingActive=false;
+  startBtn.textContent='START';
+  completedSessions=0; blocksMined=0; saveState();
+  buildHotbar(); setMode('focus');
+}
+
+// ═══════════════════════════════════════════
+// SETTINGS
+// ═══════════════════════════════════════════
+const focusValue = document.getElementById('focusValue');
+const breakValue = document.getElementById('breakValue');
+function adjustTime(type, delta) {
+  if (timerState==='running') return;
+  if (type==='focus') {
+    focusMin=Math.max(5,Math.min(60,focusMin+delta));
+    focusValue.textContent=focusMin;
+    if (timerMode==='focus') { totalSeconds=focusMin*60; remainingSeconds=totalSeconds; updateDisplay(); }
+  } else {
+    breakMin=Math.max(1,Math.min(30,breakMin+delta));
+    breakValue.textContent=breakMin;
+    if (timerMode==='break') { totalSeconds=breakMin*60; remainingSeconds=totalSeconds; updateDisplay(); }
+  }
+  saveState();
+}
+
+// ═══════════════════════════════════════════
+// SOUND
+// ═══════════════════════════════════════════
+let audioCtx = null;
+function getAudio() { if(!audioCtx) audioCtx=new(window.AudioContext||window.webkitAudioContext)(); return audioCtx; }
+function playNote(ctx,freq,time,dur,wave,vol) {
+  const o=ctx.createOscillator(),g=ctx.createGain();
+  o.type=wave; o.frequency.value=freq;
+  g.gain.setValueAtTime(vol,time); g.gain.exponentialRampToValueAtTime(.001,time+dur);
+  o.connect(g); g.connect(ctx.destination); o.start(time); o.stop(time+dur);
+}
+function playClick() {
+  if (!alarmEnabled) return;
+  try {
+    const ctx = getAudio(), now = ctx.currentTime;
+    playNote(ctx, 400, now, 0.05, 'square', 0.15);
+    playNote(ctx, 300, now + 0.03, 0.04, 'square', 0.1);
+  } catch(e){}
+}
+
+// Global button click sound
+document.addEventListener('click', (e) => {
+  if (e.target.closest('.mc-btn, .mc-btn-sm, .mc-toggle')) playClick();
+});
+
+function playSound(type) {
+  if (!alarmEnabled) return;
+  try {
+    const ctx=getAudio(), now=ctx.currentTime;
+    if (type==='complete') {
+      playNote(ctx,523.25,now,.15,'square',.3);
+      playNote(ctx,659.25,now+.15,.15,'square',.3);
+      playNote(ctx,783.99,now+.3,.15,'square',.3);
+      playNote(ctx,1046.5,now+.45,.3,'square',.25);
+    } else {
+      playNote(ctx,440,now,.2,'sine',.25);
+      playNote(ctx,554.37,now+.2,.2,'sine',.25);
+      playNote(ctx,440,now+.4,.3,'sine',.2);
+    }
+  } catch(e){}
+}
+
+// ═══════════════════════════════════════════
+// SOUND & LOFI TOGGLES
+// ═══════════════════════════════════════════
+function toggleOpt(type) {
+  if (type === 'alarm') {
+    alarmEnabled = !alarmEnabled;
+    syncToggleBtn('toggleAlarm', 'SOUND', alarmEnabled);
+  } else if (type === 'lofi') {
+    lofiEnabled = !lofiEnabled;
+    syncToggleBtn('toggleLofi', 'LOFI BREAK', lofiEnabled);
+    if (lofiEnabled && timerMode === 'break') showLofiPlayer();
+    else if (!lofiEnabled) hideLofiPlayer();
+  } else if (type === 'autoBreak') {
+    autoBreak = !autoBreak;
+    syncToggleBtn('toggleAutoBreak', 'AUTO BREAK', autoBreak);
+  } else if (type === 'autoFocus') {
+    autoFocus = !autoFocus;
+    syncToggleBtn('toggleAutoFocus', 'AUTO FOCUS', autoFocus);
+  }
+  saveState();
+}
+
+function syncToggleBtn(id, label, value) {
+  const btn = document.getElementById(id);
+  btn.textContent = `${label} ${value ? 'ON' : 'OFF'}`;
+  btn.classList.toggle('on', value);
+}
+
+function extractYouTubeId(url) {
+  if (!url) return null;
+  const m = url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=|live\/|shorts\/))([^&?\s]+)/);
+  return m ? m[1] : null;
+}
+
+function showLofiPlayer() {
+  if (!lofiEnabled) return;
+  const videoId = extractYouTubeId(lofiUrl);
+  if (!videoId) return;
+  const player = document.getElementById('lofiPlayer');
+  player.innerHTML = `<iframe src="https://www.youtube.com/embed/${videoId}?autoplay=1&loop=1&playlist=${videoId}" allow="autoplay; encrypted-media" allowfullscreen></iframe>`;
+  player.classList.add('active');
+}
+
+function hideLofiPlayer() {
+  const player = document.getElementById('lofiPlayer');
+  player.innerHTML = '';
+  player.classList.remove('active');
+}
+
+// ═══════════════════════════════════════════
+// SETTINGS DRAWER
+// ═══════════════════════════════════════════
+function toggleSettingsDrawer() {
+  document.getElementById('settingsDrawer').classList.toggle('open');
+  document.getElementById('settingsTab').classList.toggle('open');
+}
+
+// ═══════════════════════════════════════════
+// KEYBOARD
+// ═══════════════════════════════════════════
+document.addEventListener('keydown', e => {
+  if (e.code==='Space') { e.preventDefault(); startTimer(); }
+  else if (e.code==='KeyR') resetTimer();
+  else if (e.code==='KeyS') skipTimer();
+});
+
+// ═══════════════════════════════════════════
+// EVENT LISTENERS
+// ═══════════════════════════════════════════
+startBtn.addEventListener('click', startTimer);
+document.getElementById('skipBtn').addEventListener('click', skipTimer);
+document.getElementById('resetBtn').addEventListener('click', resetTimer);
+
+// ═══════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════
+focusValue.textContent = focusMin;
+breakValue.textContent = breakMin;
+createStars();
+buildProgressBar();
+buildHotbar();
+buildScene();
+renderDailyStats();
+
+// Restore settings UI
+syncToggleBtn('toggleAlarm', 'SOUND', alarmEnabled);
+syncToggleBtn('toggleLofi', 'LOFI BREAK', lofiEnabled);
+syncToggleBtn('toggleAutoBreak', 'AUTO BREAK', autoBreak);
+syncToggleBtn('toggleAutoFocus', 'AUTO FOCUS', autoFocus);
+
+setMode('focus');
+updateDisplay();
+</script>
+</body>
+</html>
