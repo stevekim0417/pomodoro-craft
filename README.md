@@ -4,6 +4,14 @@ A **Minecraft-themed Pomodoro Timer** with pixel art animations, built as a sing
 
 Mine blocks during focus time. Rest by the campfire during breaks. No dependencies, no build tools — just open and focus.
 
+## Try It Now
+
+**https://stevekim0417.github.io/pomodoro-craft/**
+
+## Music
+
+Break-time lo-fi music by [Steve's Channel](https://www.youtube.com/channel/UCER23O3Ib5BPT-59YOg3Ang) on YouTube.
+
 ## Features
 
 ### Focus Mode (Day)

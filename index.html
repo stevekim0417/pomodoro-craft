@@ -144,6 +144,16 @@ body {
 }
 .lofi-link:hover { color: #FFF; }
 
+/* Channel Link */
+.channel-link {
+  display: block; text-align: center; margin-top: 12px;
+  font-family: 'Press Start 2P', monospace; font-size: 8px;
+  color: #FFF; text-decoration: none; letter-spacing: 1px;
+  text-shadow: 2px 2px 0 #000;
+  opacity: 0.7; transition: opacity .3s;
+}
+.channel-link:hover { opacity: 1; }
+
 /* Settings Drawer */
 .settings-drawer-tab {
   text-align: center; padding: 6px; margin-top: 8px;
@@ -238,6 +248,9 @@ body {
       </div>
     </div>
   </div>
+  <a href="https://www.youtube.com/channel/UCER23O3Ib5BPT-59YOg3Ang" target="_blank" rel="noopener" class="channel-link">
+    Curious about the music?
+  </a>
 </div>
 
 <script>
@@ -257,10 +270,10 @@ let breakMin = saved.breakMin || 5;
 let completedSessions = saved.sessions || 0;
 let blocksMined = 0;
 let alarmEnabled = saved.alarmEnabled !== false;
-let lofiEnabled = saved.lofiEnabled || false;
+let lofiEnabled = saved.lofiEnabled !== false;
 const lofiUrl = 'https://youtu.be/BrG_9l_fD-I';
-let autoBreak = saved.autoBreak || false;  // auto-start break after focus ends
-let autoFocus = saved.autoFocus || false;  // auto-start focus after break ends
+let autoBreak = saved.autoBreak !== false;
+let autoFocus = saved.autoFocus !== false;
 
 function todayKey() {
   const d = new Date();
