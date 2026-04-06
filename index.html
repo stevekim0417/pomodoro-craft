@@ -145,15 +145,19 @@ body {
 }
 .lofi-link:hover { color: #FFF; }
 
-/* Channel Link */
-.channel-link {
-  display: block; text-align: center; margin-top: 12px;
+/* Footer Links */
+.footer-links {
+  display: flex; justify-content: center; align-items: center;
+  gap: 8px; margin-top: 12px; flex-wrap: wrap;
+}
+.footer-links a {
   font-family: 'Press Start 2P', monospace; font-size: 8px;
   color: #FFF; text-decoration: none; letter-spacing: 1px;
   text-shadow: 2px 2px 0 #000;
   opacity: 0.7; transition: opacity .3s;
 }
-.channel-link:hover { opacity: 1; }
+.footer-links a:hover { opacity: 1; }
+.footer-dot { color: #FFF; opacity: 0.4; text-shadow: 1px 1px 0 #000; }
 
 /* Settings Drawer */
 .settings-drawer-tab {
@@ -250,9 +254,15 @@ body {
       </div>
     </div>
   </div>
-  <a href="https://www.youtube.com/channel/UCER23O3Ib5BPT-59YOg3Ang" target="_blank" rel="noopener" class="channel-link">
-    Curious about the music?
-  </a>
+  <div class="footer-links">
+    <a href="https://www.youtube.com/channel/UCER23O3Ib5BPT-59YOg3Ang" target="_blank" rel="noopener">
+      Curious about the music?
+    </a>
+    <span class="footer-dot">·</span>
+    <a href="https://github.com/stevekim0417/pomodoro-craft/issues" target="_blank" rel="noopener">
+      Request a Feature
+    </a>
+  </div>
 </div>
 
 <script>
