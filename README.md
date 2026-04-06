@@ -10,7 +10,7 @@ Mine blocks during focus time. Rest by the campfire during breaks. No dependenci
 
 ## Music
 
-Break-time lo-fi music by [Lofi Midnight Mellow](https://www.youtube.com/channel/UCER23O3Ib5BPT-59YOg3Ang) — instrumental lo-fi beats, no lyrics.
+Break-time lo-fi music by [Lofi Midnight Mellow](https://www.youtube.com/channel/UCER23O3Ib5BPT-59YOg3Ang) — instrumental lo-fi beats for focus, study, and coding. No lyrics, just vibes.
 
 ## Features
 
