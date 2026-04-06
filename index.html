@@ -129,6 +129,21 @@ body {
 }
 .lofi-url-input::placeholder { color: #888; }
 
+/* Lofi Player */
+.lofi-player { display: none; margin: 8px 0; }
+.lofi-player.active { display: block; }
+.lofi-player iframe {
+  width: 100%; height: 80px;
+  border: 2px solid; border-color: #555 #AAA #AAA #555;
+}
+.lofi-link {
+  display: block; text-align: center; margin-top: 4px;
+  font-family: 'Press Start 2P', monospace; font-size: 7px;
+  color: var(--accent-light); text-decoration: none;
+  text-shadow: 1px 1px 0 #000;
+}
+.lofi-link:hover { color: #FFF; }
+
 /* Settings Drawer */
 .settings-drawer-tab {
   text-align: center; padding: 6px; margin-top: 8px;
@@ -205,6 +220,7 @@ body {
           <label>MIN</label>
         </div>
       </div>
+      <div class="lofi-player" id="lofiPlayer"></div>
       <div class="hotbar" id="hotbar"></div>
       <div class="daily-stats" id="dailyStats"></div>
 
@@ -1210,21 +1226,24 @@ function extractYouTubeId(url) {
   return m ? m[1] : null;
 }
 
-let lofiWindow = null;
-
 function showLofiPlayer() {
   if (!lofiEnabled) return;
-  // Open YouTube in a new tab (no embedding permission needed)
-  if (!lofiWindow || lofiWindow.closed) {
-    lofiWindow = window.open(lofiUrl, 'pomodoro_lofi');
-  } else {
-    lofiWindow.focus();
-  }
+  const videoId = extractYouTubeId(lofiUrl);
+  if (!videoId) return;
+  const player = document.getElementById('lofiPlayer');
+  player.innerHTML = `
+    <iframe src="https://www.youtube.com/embed/${videoId}?autoplay=1&loop=1&playlist=${videoId}"
+      allow="autoplay; encrypted-media" allowfullscreen></iframe>
+    <a href="${lofiUrl}" target="_blank" rel="noopener" class="lofi-link">
+      Open in YouTube ↗
+    </a>`;
+  player.classList.add('active');
 }
 
 function hideLofiPlayer() {
-  // Don't force-close the tab (browser blocks this), just let user manage it
-  lofiWindow = null;
+  const player = document.getElementById('lofiPlayer');
+  player.innerHTML = '';
+  player.classList.remove('active');
 }
 
 // ═══════════════════════════════════════════
