@@ -486,27 +486,27 @@ const STEVE_BLINK_BODY = [
 const PICK_HANDLE = ['.S','.W','.W','.W','.W','DI','IG'];
 const PICK_COLORS = { S:C.skin, W:C.wood, D:C.stoneDark, I:C.stoneLight, G:C.stone };
 
-// Study sprites
-const STEVE_STUDY1 = [
-  '..hHHHh.', '.HHHHHHH', '.HSSSSsH', '..SESES.',
-  '..SSSSS.', '...SSS..', '..TTTTT.', '.tTTTTTt',
-  '..TTTTS.', '..tTTtS.', '..PPPP..', '..PPPP..',
-];
-const STEVE_STUDY2 = [
-  '..hHHHh.', '.HHHHHHH', '.HSSSSsH', '..SESES.',
-  '..SSSSS.', '...SSS..', '..TTTTT.', '.tTTTTTt',
-  '..TTTTSS', '..tTTt..', '..PPPP..', '..PPPP..',
-];
-const STUDY_LEGS = ['..PPPP..','..XXXX..'];
+// Shovel (replaces pickaxe for digging)
+const SHOVEL = ['.S','.W','.W','.W','.W','DD','DD'];
+const SHOVEL_COLORS = { S:C.skin, W:C.wood, D:C.stoneDark };
 
-// Desk (8x4)
-const DESK = ['WWWWWWWW','WwWWwWWw','.WW..WW.','.WW..WW.'];
-const DESK_COLORS = { W:C.woodLight, w:C.wood };
-
-// Laptop (6x4)
-const LAPTOP1 = ['.FFFF.','.FLFL.','.FLLF.','KKKKKK'];
-const LAPTOP2 = ['.FFFF.','.FLLF.','.FLFL.','KKKKKK'];
-const LAPTOP_COLORS = { F:C.screenFrame, L:C.screenLight, l:C.screenBright, K:C.keyboard };
+// Hill block positions [dx, dy] relative to hill base (grows like a pyramid)
+const HILL_POSITIONS = [
+  [0,0],[1,0],[2,0],                   // base row 3
+  [0,-1],[1,-1],                       // 2nd row 2
+  [0,-2],                              // peak
+  [3,0],[-1,0],                        // widen base
+  [2,-1],[-1,-1],                      // widen 2nd
+  [1,-2],                              // widen peak
+  [4,0],[-2,0],                        // wider base
+  [3,-1],[-2,-1],                      // wider 2nd
+  [2,-2],[-1,-2],                      // wider 3rd
+  [1,-3],[0,-3],                       // taller
+  [5,0],[-3,0],                        // even wider
+  [4,-1],[3,-2],[2,-3],                // right slope
+  [-3,-1],[-2,-2],[-1,-3],            // left slope
+  [1,-4],[0,-4],                       // peak higher
+];
 
 const ORE_BLOCK = ['ssssssss','sSSdSSSs','sSSOSSSs','sdSSSSOs','sSSSOSSs','sOSSSSSs','sSSSdSOs','ssssssss'];
 const ORE_COLORS = { s:C.stoneDark, S:C.stone, d:C.stoneLight, O:C.diamondOre };
@@ -541,7 +541,7 @@ let sceneMode = 'idle';
 // Element refs
 let steveGroup, steveBodyG, steveLegsG, steveArmG;
 let oreBlockG, crackOverlayG, blockShakeG;
-let studyDeskG, laptopG;
+let hillG, hillBlockCount = 0;
 let sunG, moonG, focusLayerG, breakLayerG;
 let campfireG, wolfG, chickenG, creeperG;
 let particleLayer, itemLayer;
@@ -557,8 +557,8 @@ let jumpTimer = 0, isJumping = false, jumpVelocity = 0;
 let celebrateTimer = -1;
 
 const STEVE_MINE_X = 220, STEVE_IDLE_X = 200, ORE_X = 296, ORE_Y = GROUND_Y - 8*P;
-const STEVE_STUDY_X = 210, DESK_X = 270, DESK_Y = GROUND_Y - 4*P, LAPTOP_X = 274, LAPTOP_Y = GROUND_Y - 8*P;
-let studyFrame = 0, studyTime = 0, studyBlockTimer = 0;
+const STEVE_DIG_X = 170, HILL_BASE_X = 300, HILL_BASE_Y = GROUND_Y;
+let digBlockTimer = 0;
 
 // Break state
 let chickenX = -40, chickenDir = 1, chickenVisible = false;
@@ -589,8 +589,11 @@ function buildScene() {
 
   // Sun
   sunG = el('g');
-  renderSprite(['..YY..','.YYYY.','YYYYYY','YYYYYY','.YYYY.','..YY..'], {Y:'#FFD700'}, 390, 25, 6, sunG);
-  [[386,38,8,3],[410,38,8,3],[398,16,3,8],[398,55,3,8]].forEach(([rx,ry,rw,rh]) => rect(rx,ry,rw,rh,'#FFD700',sunG));
+  const sunPx = ['...YY...','..YYYY..','..YYYY..','.YYYYYY.','YYYYYYYY','YYYYYYYY','.YYYYYY.','..YYYY..','..YYYY..','...YY...'];
+  renderSprite(sunPx, {Y:'#FFD700'}, 380, 15, 5, sunG);
+  // Rays
+  [[375,35,6,3],[418,35,6,3],[396,8,3,6],[396,62,3,6],[378,18,4,3],[414,50,4,3],[414,18,4,3],[378,50,4,3]].forEach(([rx,ry,rw,rh]) =>
+    rect(rx,ry,rw,rh,'#FFD700',sunG));
   svg.appendChild(sunG);
 
   // Moon
@@ -611,17 +614,9 @@ function buildScene() {
   blockShakeG.appendChild(crackOverlayG);
   focusLayerG.appendChild(blockShakeG);
 
-  // Study desk + laptop
-  studyDeskG = el('g', {opacity:0});
-  renderSprite(DESK, DESK_COLORS, DESK_X, DESK_Y, P, studyDeskG);
-  laptopG = el('g');
-  renderSprite(LAPTOP1, LAPTOP_COLORS, LAPTOP_X, LAPTOP_Y, P, laptopG);
-  studyDeskG.appendChild(laptopG);
-  // Screen glow
-  const glow = el('rect', {x:LAPTOP_X+P, y:LAPTOP_Y, width:P*4, height:P*2, fill:C.screenLight, opacity:0.15});
-  glow.style.animation = 'flicker2 2s infinite alternate';
-  studyDeskG.appendChild(glow);
-  focusLayerG.appendChild(studyDeskG);
+  // Hill (grows as Steve digs)
+  hillG = el('g');
+  focusLayerG.appendChild(hillG);
 
   // Creeper
   creeperG = el('g', {opacity:0});
@@ -681,9 +676,17 @@ function buildCloud(parent, x, y, w) {
 
 function buildTree(parent, x) {
   const g = el('g');
-  for (let i=0;i<4;i++) rect(x+P, GROUND_Y-(i+1)*P, P, P, i%2===0?C.wood:C.woodLight, g);
-  [[1,3],[0,4],[0,4],[1,3],[1,2]].forEach(([s,cnt],row) => {
-    for (let i=0;i<cnt;i++) rect(x+(s+i-1)*P, GROUND_Y-(8-row)*P, P, P, (row+i)%3===0?C.leavesBright:C.leaves, g);
+  // Taller trunk (5 blocks)
+  for (let i=0;i<5;i++) rect(x+P, GROUND_Y-(i+1)*P, P, P, i%2===0?C.wood:C.woodLight, g);
+  // Fuller, rounder canopy
+  const leafRows = [[1,3],[0,5],[0,5],[-1,6],[0,5],[0,5],[1,3]];
+  leafRows.forEach(([s,cnt],row) => {
+    for (let i=0;i<cnt;i++) {
+      const lx = x + (s+i-1)*P;
+      const ly = GROUND_Y - (12-row)*P;
+      const bright = (row+i)%4===0 || (row===0&&i>0&&i<cnt-1);
+      rect(lx, ly, P, P, bright?C.leavesBright:C.leaves, g);
+    }
   });
   parent.appendChild(g);
 }
@@ -722,21 +725,22 @@ function updateSceneMode(mode) {
     focusLayerG.setAttribute('opacity', 1);
     breakLayerG.setAttribute('opacity', 0);
     if (mode === 'focus') {
-      // Study mode
-      steveX = STEVE_STUDY_X;
-      steveArmG.setAttribute('opacity', 0);
+      // Digging mode
+      steveX = STEVE_DIG_X;
+      steveArmG.setAttribute('opacity', 1);
       oreBlockG.setAttribute('opacity', 0);
       crackOverlayG.innerHTML = '';
-      studyDeskG.setAttribute('opacity', 1);
-      swingActive = false;
-      studyTime = 0; studyBlockTimer = 0;
+      hillG.innerHTML = '';
+      hillBlockCount = 0;
+      swingActive = true;
+      digBlockTimer = 0;
       sessionBlocksMined = 0;
-      updateSteveSprite('study1');
+      updateSteveSprite('stand');
     } else {
       steveX = STEVE_IDLE_X;
       steveArmG.setAttribute('opacity', 0);
-      studyDeskG.setAttribute('opacity', 0);
       oreBlockG.setAttribute('opacity', 0);
+      hillG.innerHTML = '';
       swingActive = false;
       stopAnimLoop();
       updateSteveSprite('stand');
@@ -763,9 +767,6 @@ function updateSteveSprite(pose) {
     ] : STEVE_SIT_BODY;
     renderSprite(body, CHAR, 0, 0, P, steveBodyG);
     renderSprite(STEVE_SIT_LEGS, CHAR, 0, body.length*P, P, steveLegsG);
-  } else if (pose === 'study1' || pose === 'study2') {
-    renderSprite(pose==='study1' ? STEVE_STUDY1 : STEVE_STUDY2, CHAR, 0, 0, P, steveBodyG);
-    renderSprite(STUDY_LEGS, CHAR, 0, STEVE_STUDY1.length*P, P, steveLegsG);
   } else if (pose === 'blink') {
     renderSprite(STEVE_BLINK_BODY, CHAR, 0, 0, P, steveBodyG);
     renderSprite(LEG_STAND, CHAR, 0, STEVE_BODY.length*P, P, steveLegsG);
@@ -777,8 +778,7 @@ function updateSteveSprite(pose) {
 }
 
 function positionSteve() {
-  const bodyH = (currentPose==='sit'||currentPose==='stretch') ? 13 :
-    (currentPose==='study1'||currentPose==='study2') ? (STEVE_STUDY1.length+2) : (STEVE_BODY.length+2);
+  const bodyH = (currentPose==='sit'||currentPose==='stretch') ? 13 : (STEVE_BODY.length+2);
   steveGroup.setAttribute('transform', `translate(${steveX},${GROUND_Y - bodyH*P - steveJumpY})`);
 }
 
@@ -794,7 +794,7 @@ function animTick(now) {
   lastFrameTime = now;
 
   if (sceneMode === 'focus') {
-    updateStudying(dt);
+    updateDigging(dt);
     updateCreeper(dt);
     updateSteveJump(dt);
     updateSteveBlink(dt);
@@ -860,53 +860,24 @@ function updateSteveJump(dt) {
 // ═══════════════════════════════════════════
 // STUDYING SYSTEM
 // ═══════════════════════════════════════════
-function updateStudying(dt) {
-  studyTime += dt;
+function updateDigging(dt) {
+  // Reuse mining arm swing
+  updateMining(dt);
+}
 
-  // Typing animation: alternate body frames
-  const newFrame = Math.floor(studyTime * 3) % 2;
-  if (newFrame !== studyFrame && !isBlinking) {
-    studyFrame = newFrame;
-    updateSteveSprite(studyFrame === 0 ? 'study1' : 'study2');
-
-    // Laptop screen flicker
-    laptopG.innerHTML = '';
-    renderSprite(studyFrame === 0 ? LAPTOP1 : LAPTOP2, LAPTOP_COLORS, LAPTOP_X, LAPTOP_Y, P, laptopG);
+function addHillBlock() {
+  if (hillBlockCount >= HILL_POSITIONS.length) return;
+  const [dx, dy] = HILL_POSITIONS[hillBlockCount];
+  const bx = HILL_BASE_X + dx * P;
+  const by = HILL_BASE_Y + dy * P - P; // -P to sit on ground
+  const colors = [C.dirt, C.dirtDark, C.grassTop];
+  const color = dy < -1 ? colors[0] : dy < 0 ? colors[1] : colors[2];
+  rect(bx, by, P, P, color, hillG);
+  // Top blocks get grass
+  if (dy === Math.min(...HILL_POSITIONS.slice(0, hillBlockCount+1).map(p=>p[1]))) {
+    rect(bx, by, P, 2, C.grassSide, hillG);
   }
-
-  // Subtle body bounce (typing rhythm)
-  if (!isJumping) {
-    steveJumpY = Math.abs(Math.sin(studyTime * 6)) * 2;
-    positionSteve();
-  }
-
-  // Code particles from screen every ~2 seconds
-  studyBlockTimer += dt;
-  if (studyBlockTimer > 2) {
-    studyBlockTimer = 0;
-    // Sparkle particles rising from screen
-    for (let i = 0; i < 3; i++) {
-      const px = LAPTOP_X + P + Math.random() * P * 4;
-      const py = LAPTOP_Y;
-      const ch = ['0','1','{','}','<','>','/','*'][Math.floor(Math.random()*8)];
-      const t = el('text', {
-        x: px, y: py, fill: C.screenBright, 'font-size': 6 + Math.random()*4,
-        'font-family': 'Press Start 2P', opacity: 0.8,
-      });
-      t.textContent = ch;
-      t.animate([
-        {transform:'translate(0,0)', opacity:0.8},
-        {transform:`translate(${(Math.random()-.5)*20}px,-${30+Math.random()*20}px)`, opacity:0}
-      ], {duration:1000+Math.random()*500, fill:'forwards'});
-      particleLayer.appendChild(t);
-      setTimeout(() => t.remove(), 1600);
-    }
-
-    // Increment blocks (productivity)
-    blocksMined++;
-    sessionBlocksMined++;
-    if (sessionBlocksMined % 10 === 0) recordBlocks(10);
-  }
+  hillBlockCount++;
 }
 
 // ═══════════════════════════════════════════
@@ -974,17 +945,16 @@ function updateMining(dt) {
 }
 
 function onPickaxeHit() {
-  blockHP--;
-  // Block shake
-  blockShakeG.animate([
-    {transform:'translate(0,0)'},{transform:'translate(4,0)'},
-    {transform:'translate(-4,0)'},{transform:'translate(2,0)'},{transform:'translate(0,0)'}
-  ], {duration:150});
+  // Dirt particles from ground
+  spawnParticles(steveX+4*P, GROUND_Y-P, [C.dirt,C.dirtDark,C.grassTop,C.grassSide], 5);
 
-  spawnParticles(ORE_X+32, ORE_Y+32, [C.stone,C.stoneDark,C.stoneLight,C.diamondOre], 6);
+  // Add block to hill
+  addHillBlock();
 
-  if (blockHP <= 0) onBlockBreak();
-  else updateCrack();
+  // Increment counters
+  blocksMined++;
+  sessionBlocksMined++;
+  if (sessionBlocksMined % 10 === 0) recordBlocks(10);
 }
 
 function onBlockBreak() {
