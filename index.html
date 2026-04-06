@@ -71,7 +71,9 @@ body {
 .mc-btn.primary { background: #5A8B3A; border-color: #8DB360 #2D5A1A #2D5A1A #8DB360; color: #FFF; text-shadow: 1px 1px 0 #2D5A1A; }
 .mc-btn.primary:active { border-color: #2D5A1A #8DB360 #8DB360 #2D5A1A; }
 .mc-btn.danger { background: #8B3A3A; border-color: #B36060 #5A1A1A #5A1A1A #B36060; color: #FFF; text-shadow: 1px 1px 0 #5A1A1A; }
-.settings { display: flex; justify-content: center; gap: 24px; margin: 12px 0; }
+.settings { display: flex; justify-content: center; gap: 16px; margin: 12px 0; flex-wrap: wrap; }
+.session-indicator { font-size: 9px; color: #FFD700; letter-spacing: 1px; text-shadow: 1px 1px 0 #000; margin-bottom: 4px; }
+[data-mode="break"] .session-indicator { color: #88BBFF; }
 .setting { display: flex; align-items: center; gap: 6px; }
 .setting label { font-size: 8px; color: #DDD; text-shadow: 1px 1px 0 #000; }
 .setting .value { font-size: 14px; color: #FFF; text-shadow: 2px 2px 0 #000; min-width: 36px; text-align: center; }
@@ -212,6 +214,7 @@ body {
       </div>
       <div class="timer-section">
         <div class="mode-label" id="modeLabel">FOCUS</div>
+        <div class="session-indicator" id="sessionIndicator"></div>
         <div class="timer-display" id="timerDisplay">25:00</div>
         <div class="progress-bar" id="progressBar"></div>
       </div>
@@ -233,6 +236,13 @@ body {
           <button class="mc-btn-sm" onclick="adjustTime('break',-1)">-</button>
           <span class="value" id="breakValue">5</span>
           <button class="mc-btn-sm" onclick="adjustTime('break',1)">+</button>
+          <label>MIN</label>
+        </div>
+        <div class="setting">
+          <label>LONG</label>
+          <button class="mc-btn-sm" onclick="adjustTime('long',-5)">-</button>
+          <span class="value" id="longBreakValue">15</span>
+          <button class="mc-btn-sm" onclick="adjustTime('long',5)">+</button>
           <label>MIN</label>
         </div>
       </div>
@@ -272,6 +282,7 @@ body {
 const P = 8;
 const SVG_W = 480, SVG_H = 240, GROUND_Y = 168;
 const TOTAL_SESSIONS = 8, HITS_TO_BREAK = 4;
+const LONG_BREAK_INTERVAL = 4; // long break every N sessions
 
 // ═══════════════════════════════════════════
 // PERSISTENCE
@@ -279,6 +290,7 @@ const TOTAL_SESSIONS = 8, HITS_TO_BREAK = 4;
 const saved = JSON.parse(localStorage.getItem('pomodocraft') || '{}');
 let focusMin = saved.focusMin || 25;
 let breakMin = saved.breakMin || 5;
+let longBreakMin = saved.longBreakMin || 15;
 let completedSessions = saved.sessions || 0;
 let blocksMined = 0;
 let alarmEnabled = saved.alarmEnabled !== false;
@@ -331,7 +343,7 @@ function renderDailyStats() {
 
 function saveState() {
   localStorage.setItem('pomodocraft', JSON.stringify({
-    focusMin, breakMin, sessions: completedSessions,
+    focusMin, breakMin, longBreakMin, sessions: completedSessions,
     alarmEnabled, lofiEnabled,
     autoBreak, autoFocus,
   }));
@@ -1093,17 +1105,32 @@ function updateDisplay() {
 
 function setMode(mode) {
   timerMode = mode;
-  document.body.setAttribute('data-mode', mode);
-  if (mode==='focus') {
-    totalSeconds=focusMin*60; modeLabel.textContent='FOCUS'; subtitleText.textContent='FOCUS TIME';
+  const isBreak = mode === 'break' || mode === 'longbreak';
+  document.body.setAttribute('data-mode', isBreak ? 'break' : 'focus');
+
+  if (mode === 'focus') {
+    totalSeconds = focusMin * 60;
+    const sessionInCycle = (completedSessions % LONG_BREAK_INTERVAL) + 1;
+    modeLabel.textContent = 'FOCUS';
+    subtitleText.textContent = 'FOCUS TIME';
+    document.getElementById('sessionIndicator').textContent = `SESSION ${sessionInCycle} / ${LONG_BREAK_INTERVAL}`;
     hideLofiPlayer();
+  } else if (mode === 'longbreak') {
+    totalSeconds = longBreakMin * 60;
+    modeLabel.textContent = 'LONG BREAK';
+    subtitleText.textContent = 'LONG BREAK';
+    document.getElementById('sessionIndicator').textContent = 'CYCLE COMPLETE';
+    showLofiPlayer();
   } else {
-    totalSeconds=breakMin*60; modeLabel.textContent='BREAK'; subtitleText.textContent='BREAK TIME';
+    totalSeconds = breakMin * 60;
+    modeLabel.textContent = 'BREAK';
+    subtitleText.textContent = 'BREAK TIME';
+    document.getElementById('sessionIndicator').textContent = '';
     showLofiPlayer();
   }
   remainingSeconds = totalSeconds;
   updateDisplay();
-  updateSceneMode(timerState==='running' ? mode : (mode==='break' ? 'break' : 'idle'));
+  updateSceneMode(timerState === 'running' ? (isBreak ? 'break' : 'focus') : (isBreak ? 'break' : 'idle'));
 }
 
 function startTimer() {
@@ -1113,7 +1140,8 @@ function startTimer() {
     return;
   }
   timerState='running'; startBtn.textContent='PAUSE';
-  updateSceneMode(timerMode); startAnimLoop();
+  requestNotifPermission();
+  updateSceneMode(timerMode === 'focus' ? 'focus' : 'break'); startAnimLoop();
 
   timerInterval = setInterval(() => {
     remainingSeconds--;
@@ -1124,16 +1152,20 @@ function startTimer() {
       startBtn.textContent='START';
       playSound(timerMode==='focus'?'complete':'break_end');
 
-      // Record remaining blocks mined
       if (timerMode==='focus') {
         recordSession('focus', focusMin);
         if (sessionBlocksMined % 10 !== 0) recordBlocks(sessionBlocksMined % 10);
         completedSessions++; saveState(); buildHotbar();
         if (completedSessions>=TOTAL_SESSIONS) { completedSessions=0; saveState(); buildHotbar(); }
-        setMode('break');
+        // Long break every N sessions
+        const isLongBreak = completedSessions % LONG_BREAK_INTERVAL === 0;
+        sendNotification('Focus Complete!', isLongBreak ? 'Time for a long break.' : 'Time for a short break.');
+        setMode(isLongBreak ? 'longbreak' : 'break');
         if (autoBreak) setTimeout(() => startTimer(), 1500);
       } else {
-        recordSession('break', breakMin);
+        const mins = timerMode==='longbreak' ? longBreakMin : breakMin;
+        recordSession('break', mins);
+        sendNotification('Break Over!', 'Ready to focus again?');
         setMode('focus');
         if (autoFocus) setTimeout(() => startTimer(), 1500);
       }
@@ -1145,7 +1177,10 @@ function skipTimer() {
   clearInterval(timerInterval); timerInterval=null;
   timerState='idle'; stopAnimLoop(); swingActive=false;
   startBtn.textContent='START';
-  if (timerMode==='focus') setMode('break'); else setMode('focus');
+  if (timerMode==='focus') {
+    const isLongBreak = (completedSessions + 1) % LONG_BREAK_INTERVAL === 0;
+    setMode(isLongBreak ? 'longbreak' : 'break');
+  } else setMode('focus');
 }
 
 function resetTimer() {
@@ -1167,6 +1202,10 @@ function adjustTime(type, delta) {
     focusMin=Math.max(5,Math.min(60,focusMin+delta));
     focusValue.textContent=focusMin;
     if (timerMode==='focus') { totalSeconds=focusMin*60; remainingSeconds=totalSeconds; updateDisplay(); }
+  } else if (type==='long') {
+    longBreakMin=Math.max(5,Math.min(60,longBreakMin+delta));
+    document.getElementById('longBreakValue').textContent=longBreakMin;
+    if (timerMode==='longbreak') { totalSeconds=longBreakMin*60; remainingSeconds=totalSeconds; updateDisplay(); }
   } else {
     breakMin=Math.max(1,Math.min(30,breakMin+delta));
     breakValue.textContent=breakMin;
@@ -1312,6 +1351,20 @@ function hideLofiPlayer() {
 }
 
 // ═══════════════════════════════════════════
+// BROWSER NOTIFICATIONS
+// ═══════════════════════════════════════════
+function requestNotifPermission() {
+  if ('Notification' in window && Notification.permission === 'default') {
+    Notification.requestPermission();
+  }
+}
+function sendNotification(title, body) {
+  if ('Notification' in window && Notification.permission === 'granted') {
+    new Notification(title, { body });
+  }
+}
+
+// ═══════════════════════════════════════════
 // SETTINGS DRAWER
 // ═══════════════════════════════════════════
 function toggleSettingsDrawer() {
@@ -1340,6 +1393,7 @@ document.getElementById('resetBtn').addEventListener('click', resetTimer);
 // ═══════════════════════════════════════════
 focusValue.textContent = focusMin;
 breakValue.textContent = breakMin;
+document.getElementById('longBreakValue').textContent = longBreakMin;
 createStars();
 buildProgressBar();
 buildHotbar();
