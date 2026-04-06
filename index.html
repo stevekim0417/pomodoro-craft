@@ -47,7 +47,7 @@ body {
 .scene-wrap {
   position: relative; width: 100%; aspect-ratio: 2/1; margin-bottom: 12px; overflow: hidden;
   border: 3px solid; border-color: #555 #AAA #AAA #555;
-  background: linear-gradient(180deg, var(--sky-top) 0%, var(--sky-bottom) 60%, #5B8731 60.1%, #5B8731 63%, #866043 63.1%, #866043 100%);
+  background: linear-gradient(180deg, var(--sky-top) 0%, var(--sky-bottom) 68%, #5B8731 68.1%, #5B8731 71%, #866043 71.1%, #866043 100%);
   transition: background var(--transition-speed);
 }
 .scene-wrap svg { width: 100%; height: 100%; display: block; }
@@ -337,8 +337,8 @@ body {
 // ═══════════════════════════════════════════
 // CONSTANTS
 // ═══════════════════════════════════════════
-const P = 8;
-const SVG_W = 480, SVG_H = 240, GROUND_Y = 168;
+const P = 6;
+const SVG_W = 480, SVG_H = 240, GROUND_Y = 172;
 const TOTAL_SESSIONS = 8, HITS_TO_BREAK = 4;
 const LONG_BREAK_INTERVAL = 4; // long break every N sessions
 
@@ -556,8 +556,8 @@ let blinkTimer = 0, isBlinking = false;
 let jumpTimer = 0, isJumping = false, jumpVelocity = 0;
 let celebrateTimer = -1;
 
-const STEVE_MINE_X = 220, STEVE_IDLE_X = 180, ORE_X = 296, ORE_Y = GROUND_Y - 64;
-const STEVE_STUDY_X = 190, DESK_X = 260, DESK_Y = GROUND_Y - 32, LAPTOP_X = 264, LAPTOP_Y = GROUND_Y - 64;
+const STEVE_MINE_X = 220, STEVE_IDLE_X = 200, ORE_X = 296, ORE_Y = GROUND_Y - 8*P;
+const STEVE_STUDY_X = 210, DESK_X = 270, DESK_Y = GROUND_Y - 4*P, LAPTOP_X = 274, LAPTOP_Y = GROUND_Y - 8*P;
 let studyFrame = 0, studyTime = 0, studyBlockTimer = 0;
 
 // Break state
@@ -579,7 +579,7 @@ function buildScene() {
   // Ground
   for (let x = 0; x < SVG_W; x += P) {
     rect(x, GROUND_Y, P, P, (x/P)%7===0 ? C.grassSide : C.grassTop, bgLayer);
-    for (let row = 1; row < 10; row++)
+    for (let row = 1; row < 12; row++)
       rect(x, GROUND_Y+row*P, P, P, (x+row*3)%5===0 ? C.dirtDark : C.dirt, bgLayer);
   }
 
@@ -625,20 +625,20 @@ function buildScene() {
 
   // Creeper
   creeperG = el('g', {opacity:0});
-  renderSprite(CREEPER, CREEPER_COLORS, 428, GROUND_Y-56, 5, creeperG);
+  renderSprite(CREEPER, CREEPER_COLORS, 428, GROUND_Y-8*P, 5, creeperG);
   focusLayerG.appendChild(creeperG);
 
   // Break layer
   breakLayerG = el('g', {opacity:0});
   svg.appendChild(breakLayerG);
   campfireG = el('g');
-  buildCampfire(campfireG, 290, GROUND_Y-24);
+  buildCampfire(campfireG, 290, GROUND_Y-4*P);
   breakLayerG.appendChild(campfireG);
 
   // Wolf
   wolfG = el('g');
   renderSprite(WOLF1, WOLF_COLORS, 0, 0, 6, wolfG);
-  wolfG.setAttribute('transform', `translate(340,${GROUND_Y-48})`);
+  wolfG.setAttribute('transform', `translate(350,${GROUND_Y-7*P})`);
   breakLayerG.appendChild(wolfG);
 
   // Chicken
@@ -953,7 +953,7 @@ function updateMining(dt) {
   prevSwingHalf = currentHalf;
 
   // Arm rotation
-  const pivotX = 6 * P, pivotY = 7 * P;
+  const pivotX = 6*P, pivotY = 7*P;
   steveArmG.setAttribute('transform', `translate(${pivotX},${pivotY}) rotate(${angle})`);
 
   // Body bounce
@@ -1101,7 +1101,7 @@ function updateBreakScene(dt) {
 
 function updateCampfireEffects(dt) {
   if (Math.random() < dt*8) {
-    const flame = rect(290+Math.random()*24, GROUND_Y-24, P, P,
+    const flame = rect(290+Math.random()*4*P, GROUND_Y-4*P, P, P,
       [C.fire1,C.fire2,C.fire3][Math.floor(Math.random()*3)], breakLayerG);
     flame.animate([
       {transform:'translateY(0)',opacity:1},
@@ -1110,7 +1110,7 @@ function updateCampfireEffects(dt) {
     setTimeout(()=>flame.remove(),900);
   }
   if (Math.random() < dt*2) {
-    const ember = rect(296+Math.random()*16, GROUND_Y-30, 3, 3,
+    const ember = rect(292+Math.random()*3*P, GROUND_Y-5*P, 3, 3,
       Math.random()>.5?C.fire3:C.fire2, breakLayerG);
     ember.animate([
       {transform:'translate(0,0)',opacity:.8},
@@ -1125,7 +1125,7 @@ function updateZzz(dt) {
   if (zzzTime > 2.5) {
     zzzTime = 0;
     const t = el('text', {
-      x:steveX+55, y:GROUND_Y-90, fill:'#AAF',
+      x:steveX+8*P, y:GROUND_Y-14*P, fill:'#AAF',
       'font-size':'12', 'font-family':'Press Start 2P', opacity:.8
     });
     t.textContent = 'z';
@@ -1150,7 +1150,7 @@ function updateChicken(dt) {
   }
   chickenX += chickenDir * 35 * dt;
   const bob = Math.sin(chickenX*.3) * 3;
-  chickenG.setAttribute('transform',`translate(${chickenX},${GROUND_Y-30+bob}) scale(${chickenDir>0?1:-1},1)`);
+  chickenG.setAttribute('transform',`translate(${chickenX},${GROUND_Y-5*P+bob}) scale(${chickenDir>0?1:-1},1)`);
   if ((chickenDir>0 && chickenX>SVG_W+40) || (chickenDir<0 && chickenX<-40)) {
     chickenVisible = false; chickenG.setAttribute('opacity',0);
   }
@@ -1163,7 +1163,7 @@ function updateWolf(dt) {
     wolfFrame = 1 - wolfFrame;
     wolfG.innerHTML = '';
     renderSprite(wolfFrame===0 ? WOLF1 : WOLF2, WOLF_COLORS, 0, 0, 6, wolfG);
-    wolfG.setAttribute('transform', `translate(340,${GROUND_Y-48})`);
+    wolfG.setAttribute('transform', `translate(350,${GROUND_Y-7*P})`);
   }
 }
 
