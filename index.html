@@ -116,7 +116,10 @@ body {
 .mc-btn.primary { background: #5A8B3A; border-color: #8DB360 #2D5A1A #2D5A1A #8DB360; color: #FFF; text-shadow: 1px 1px 0 #2D5A1A; }
 .mc-btn.primary:active { border-color: #2D5A1A #8DB360 #8DB360 #2D5A1A; }
 .mc-btn.danger { background: #8B3A3A; border-color: #B36060 #5A1A1A #5A1A1A #B36060; color: #FFF; text-shadow: 1px 1px 0 #5A1A1A; }
-.settings { display: flex; justify-content: center; gap: 16px; margin: 12px 0; flex-wrap: wrap; }
+.settings { display: flex; justify-content: center; gap: 20px; margin: 12px 0; flex-wrap: wrap; }
+.setting { flex-direction: column; align-items: center; gap: 4px; }
+.setting-label { font-size: 8px; color: #DDD; text-shadow: 1px 1px 0 #000; letter-spacing: 1px; }
+.setting-controls { display: flex; align-items: center; gap: 4px; }
 .session-indicator { font-size: 9px; color: #FFD700; letter-spacing: 1px; text-shadow: 1px 1px 0 #000; margin-bottom: 4px; }
 [data-mode="break"] .session-indicator { color: #88BBFF; }
 .setting { display: flex; align-items: center; gap: 6px; }
@@ -273,25 +276,28 @@ body {
       </div>
       <div class="settings">
         <div class="setting">
-          <label>FOCUS</label>
-          <button class="mc-btn-sm" onclick="adjustTime('focus',-5)">-</button>
-          <span class="value" id="focusValue">25</span>
-          <button class="mc-btn-sm" onclick="adjustTime('focus',5)">+</button>
-          <label>MIN</label>
+          <div class="setting-label">FOCUS</div>
+          <div class="setting-controls">
+            <button class="mc-btn-sm" onclick="adjustTime('focus',-5)">-</button>
+            <span class="value" id="focusValue">25</span>
+            <button class="mc-btn-sm" onclick="adjustTime('focus',5)">+</button>
+          </div>
         </div>
         <div class="setting">
-          <label>BREAK</label>
-          <button class="mc-btn-sm" onclick="adjustTime('break',-1)">-</button>
-          <span class="value" id="breakValue">5</span>
-          <button class="mc-btn-sm" onclick="adjustTime('break',1)">+</button>
-          <label>MIN</label>
+          <div class="setting-label">BREAK</div>
+          <div class="setting-controls">
+            <button class="mc-btn-sm" onclick="adjustTime('break',-1)">-</button>
+            <span class="value" id="breakValue">5</span>
+            <button class="mc-btn-sm" onclick="adjustTime('break',1)">+</button>
+          </div>
         </div>
         <div class="setting">
-          <label>LONG</label>
-          <button class="mc-btn-sm" onclick="adjustTime('long',-5)">-</button>
-          <span class="value" id="longBreakValue">15</span>
-          <button class="mc-btn-sm" onclick="adjustTime('long',5)">+</button>
-          <label>MIN</label>
+          <div class="setting-label">LONG</div>
+          <div class="setting-controls">
+            <button class="mc-btn-sm" onclick="adjustTime('long',-5)">-</button>
+            <span class="value" id="longBreakValue">15</span>
+            <button class="mc-btn-sm" onclick="adjustTime('long',5)">+</button>
+          </div>
         </div>
       </div>
       <div class="lofi-player" id="lofiPlayer"></div>
