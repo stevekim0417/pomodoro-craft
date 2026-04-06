@@ -1239,24 +1239,64 @@ function extractYouTubeId(url) {
   return m ? m[1] : null;
 }
 
+let ytPlayer = null;
+let ytReady = false;
+let ytApiLoaded = false;
+
+function loadYouTubeAPI() {
+  if (ytApiLoaded) return;
+  ytApiLoaded = true;
+  const tag = document.createElement('script');
+  tag.src = 'https://www.youtube.com/iframe_api';
+  document.head.appendChild(tag);
+}
+
+// YouTube API calls this globally when ready
+window.onYouTubeIframeAPIReady = function() {
+  ytReady = true;
+  // If lofi was waiting to play, start now
+  if (lofiEnabled && timerMode === 'break') initYTPlayer();
+};
+
+function initYTPlayer() {
+  if (ytPlayer) { ytPlayer.playVideo(); return; }
+  const videoId = extractYouTubeId(lofiUrl);
+  if (!videoId || !ytReady) return;
+
+  const container = document.getElementById('lofiPlayer');
+  container.classList.add('active');
+  container.innerHTML = '<div id="ytPlayerDiv"></div><a href="' + lofiUrl + '" target="_blank" rel="noopener" class="lofi-link">Open in YouTube ↗</a>';
+
+  ytPlayer = new YT.Player('ytPlayerDiv', {
+    height: '80', width: '100%',
+    videoId: videoId,
+    playerVars: { autoplay: 1, loop: 1, playlist: videoId },
+    events: {
+      onReady: function(e) { e.target.playVideo(); },
+    }
+  });
+}
+
 function showLofiPlayer() {
   if (!lofiEnabled) return;
-  const videoId = extractYouTubeId(lofiUrl);
-  if (!videoId) return;
-  const player = document.getElementById('lofiPlayer');
-  player.innerHTML = `
-    <iframe src="https://www.youtube.com/embed/${videoId}?autoplay=1&loop=1&playlist=${videoId}"
-      allow="autoplay; encrypted-media" allowfullscreen></iframe>
-    <a href="${lofiUrl}" target="_blank" rel="noopener" class="lofi-link">
-      Open in YouTube ↗
-    </a>`;
-  player.classList.add('active');
+  loadYouTubeAPI();
+  const container = document.getElementById('lofiPlayer');
+  container.classList.add('active');
+  if (ytPlayer && typeof ytPlayer.playVideo === 'function') {
+    ytPlayer.playVideo();
+  } else if (ytReady) {
+    initYTPlayer();
+  }
+  // If API not ready yet, onYouTubeIframeAPIReady will handle it
 }
 
 function hideLofiPlayer() {
-  const player = document.getElementById('lofiPlayer');
-  player.innerHTML = '';
-  player.classList.remove('active');
+  const container = document.getElementById('lofiPlayer');
+  container.classList.remove('active');
+  // Pause instead of destroy — resume from same position next break
+  if (ytPlayer && typeof ytPlayer.pauseVideo === 'function') {
+    ytPlayer.pauseVideo();
+  }
 }
 
 // ═══════════════════════════════════════════
