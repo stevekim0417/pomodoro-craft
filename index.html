@@ -943,8 +943,43 @@ function updateSteveJump(dt) {
 // STUDYING SYSTEM
 // ═══════════════════════════════════════════
 function updateDigging(dt) {
-  // Reuse mining arm swing
-  updateMining(dt);
+  if (!swingActive) return;
+  if (celebrateTimer > 0) { celebrateTimer -= dt; return; }
+
+  swingTime += dt;
+
+  // Digging swing: arm goes from raised (-40°) to ground impact (+70°)
+  const cycle = swingTime * swingSpeed;
+  const sinVal = Math.sin(cycle * Math.PI * 2);
+  const angle = 15 + sinVal * 55; // -40 (raised) to +70 (ground hit)
+
+  const currentHalf = sinVal > 0 ? 1 : 0;
+  if (currentHalf === 1 && prevSwingHalf === 0) onPickaxeHit();
+  prevSwingHalf = currentHalf;
+
+  // Arm pivot at shoulder
+  const pivotX = 6*P, pivotY = 7*P;
+  steveArmG.setAttribute('transform', `translate(${pivotX},${pivotY}) rotate(${angle})`);
+
+  // Body lean forward on downswing (max ~8° tilt)
+  const lean = Math.max(0, sinVal) * 8;
+  const bounce = Math.abs(sinVal) * 4;
+  if (!isJumping) {
+    steveJumpY = bounce;
+    // Apply lean rotation from feet (bottom-center pivot)
+    const bodyH = (STEVE_BODY.length + 2) * P;
+    steveGroup.setAttribute('transform',
+      `translate(${steveX},${GROUND_Y - bodyH - steveJumpY}) rotate(${lean},${4*P},${bodyH})`);
+  }
+
+  // Leg animation
+  walkTime += dt;
+  const newPhase = Math.floor(walkTime * 3) % 2;
+  if (newPhase !== walkPhase && !isBlinking) {
+    walkPhase = newPhase;
+    steveLegsG.innerHTML = '';
+    renderSprite(walkPhase===0 ? LEG_WALK1 : LEG_WALK2, CHAR, 0, STEVE_BODY.length*P, P, steveLegsG);
+  }
 }
 
 // ═══════════════════════════════════════════
