@@ -128,12 +128,6 @@ body {
   width: 200px; outline: none;
 }
 .lofi-url-input::placeholder { color: #888; }
-.lofi-player { display: none; margin-top: 8px; }
-.lofi-player.active { display: block; }
-.lofi-player iframe {
-  width: 100%; height: 80px;
-  border: 2px solid; border-color: #555 #AAA #AAA #555;
-}
 
 /* Settings Drawer */
 .settings-drawer-tab {
@@ -211,8 +205,6 @@ body {
           <label>MIN</label>
         </div>
       </div>
-      <div class="lofi-player" id="lofiPlayer"></div>
-
       <div class="hotbar" id="hotbar"></div>
       <div class="daily-stats" id="dailyStats"></div>
 
@@ -1218,19 +1210,21 @@ function extractYouTubeId(url) {
   return m ? m[1] : null;
 }
 
+let lofiWindow = null;
+
 function showLofiPlayer() {
   if (!lofiEnabled) return;
-  const videoId = extractYouTubeId(lofiUrl);
-  if (!videoId) return;
-  const player = document.getElementById('lofiPlayer');
-  player.innerHTML = `<iframe src="https://www.youtube.com/embed/${videoId}?autoplay=1&loop=1&playlist=${videoId}" allow="autoplay; encrypted-media" allowfullscreen></iframe>`;
-  player.classList.add('active');
+  // Open YouTube in a new tab (no embedding permission needed)
+  if (!lofiWindow || lofiWindow.closed) {
+    lofiWindow = window.open(lofiUrl, 'pomodoro_lofi');
+  } else {
+    lofiWindow.focus();
+  }
 }
 
 function hideLofiPlayer() {
-  const player = document.getElementById('lofiPlayer');
-  player.innerHTML = '';
-  player.classList.remove('active');
+  // Don't force-close the tab (browser blocks this), just let user manage it
+  lofiWindow = null;
 }
 
 // ═══════════════════════════════════════════
