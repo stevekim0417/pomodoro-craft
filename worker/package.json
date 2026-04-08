@@ -1,0 +1,15 @@
+{
+  "name": "pomodoro-craft-api",
+  "version": "0.1.0",
+  "description": "Cloudflare Worker backend for Pomodoro Craft multiplayer (presence, global counters, live feed)",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "tail": "wrangler tail"
+  },
+  "devDependencies": {
+    "wrangler": "^3.78.0"
+  }
+}

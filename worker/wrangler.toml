@@ -1,0 +1,22 @@
+name = "pomodoro-craft-api"
+main = "src/index.js"
+compatibility_date = "2024-11-01"
+
+# Durable Object binding — FocusHub holds live presence + global counters.
+# Single global instance ("global") aggregates all users into one room.
+# Can be sharded later (e.g. per-region) if scale demands it.
+[[durable_objects.bindings]]
+name = "FOCUS_HUB"
+class_name = "FocusHub"
+
+# Migration — first-time creation of the Durable Object class.
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["FocusHub"]
+
+# CORS is enforced in code (src/index.js) — allow both GitHub Pages and
+# a future custom domain without hardcoding here.
+
+# Observability (free)
+[observability]
+enabled = true
