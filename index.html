@@ -206,6 +206,31 @@ body {
   filter: drop-shadow(1px 1px 0 #000);
 }
 .daily-stats .harvest-empty { font-size: 6px; color: #888; letter-spacing: 1px; }
+.daily-stats .streak-row {
+  width: 100%; margin-top: 4px; display: flex; justify-content: center;
+}
+.streak-badge {
+  font-size: 8px; padding: 5px 10px; color: #AAA;
+  border: 2px solid; border-color: #555 #222 #222 #555;
+  background: #3A3A3A; text-shadow: 1px 1px 0 #000;
+  letter-spacing: 1px;
+}
+.streak-badge.active {
+  color: #FFC040; border-color: #B87020 #5C2A00 #5C2A00 #B87020;
+  background: #7A3A0A;
+  animation: streakPulse 2s infinite alternate;
+}
+@keyframes streakPulse {
+  0%   { box-shadow: 0 0 0 0 rgba(255,192,64,0.3); }
+  100% { box-shadow: 0 0 6px 2px rgba(255,192,64,0.5); }
+}
+.daily-stats .lifetime-row {
+  width: 100%; margin-top: 6px; padding-top: 4px;
+  border-top: 1px dashed #555;
+  font-size: 6px; color: #BBB; text-shadow: 1px 1px 0 #000;
+  letter-spacing: 1px; text-align: center;
+}
+.daily-stats .lifetime-row b { color: #FFF; }
 
 /* Share button — kicks off the viral loop */
 .share-wrap { display: flex; justify-content: center; margin: 8px 0 4px; }
@@ -548,16 +573,128 @@ function saveDaily(data) {
 }
 let daily = loadDaily();
 
+// ═══════════════════════════════════════════
+// STREAK SYSTEM — "me vs yesterday me"
+// ─────────────────────────────────────────
+// Tracks consecutive days with at least one completed focus session.
+// Stored in its own localStorage key so daily stats reset doesn't wipe
+// streak history. Broken streaks start over from 1 (no grace / freeze
+// in v1 — can add Streak Freeze item later).
+// ═══════════════════════════════════════════
+function loadStreak() {
+  return JSON.parse(localStorage.getItem('pomodocraft_streak') || '{}');
+}
+function saveStreak(data) {
+  localStorage.setItem('pomodocraft_streak', JSON.stringify(data));
+}
+function yesterdayKey() {
+  const d = new Date(Date.now() - 86400000);
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+function updateStreakOnSession() {
+  const s = loadStreak();
+  const today = todayKey();
+  // Already counted today — nothing to do.
+  if (s.lastDate === today) return;
+
+  let newCurrent;
+  if (!s.lastDate) {
+    newCurrent = 1;                      // first ever session
+  } else if (s.lastDate === yesterdayKey()) {
+    newCurrent = (s.current || 0) + 1;   // continuing streak
+  } else {
+    newCurrent = 1;                      // broken streak restart
+  }
+  const newBest = Math.max(s.best || 0, newCurrent);
+
+  saveStreak({ lastDate: today, current: newCurrent, best: newBest });
+}
+function getStreak() {
+  const s = loadStreak();
+  // If last session was neither today nor yesterday, the streak is
+  // technically broken. Display 0 for "current" in that case, but keep
+  // the stored value so tomorrow's first session can see "broken" vs
+  // "never started".
+  const today = todayKey();
+  const yest = yesterdayKey();
+  const isAlive = s.lastDate === today || s.lastDate === yest;
+  return {
+    current: isAlive ? (s.current || 0) : 0,
+    best: s.best || 0,
+    lastDate: s.lastDate || null,
+  };
+}
+
+// ═══════════════════════════════════════════
+// LIFETIME STATS — "me vs my all-time best"
+// ─────────────────────────────────────────
+// Totals that never reset. Feeds the share card ("42 day journey").
+// ═══════════════════════════════════════════
+function loadLifetime() {
+  return JSON.parse(localStorage.getItem('pomodocraft_lifetime') || '{}');
+}
+function saveLifetime(data) {
+  localStorage.setItem('pomodocraft_lifetime', JSON.stringify(data));
+}
+function updateLifetimeOnSession(minutes) {
+  const L = loadLifetime();
+  const today = todayKey();
+  const newTotal = (L.totalMinutes || 0) + minutes;
+  const newSessions = (L.totalSessions || 0) + 1;
+
+  // Track best single day
+  const d = loadDaily();
+  let bestDay = L.bestDay || { date: null, minutes: 0 };
+  if (d.focusMin > bestDay.minutes) {
+    bestDay = { date: today, minutes: d.focusMin };
+  }
+
+  saveLifetime({
+    firstDay: L.firstDay || today,
+    totalMinutes: newTotal,
+    totalSessions: newSessions,
+    bestDay,
+  });
+}
+function getLifetime() {
+  const L = loadLifetime();
+  // Days since first session
+  let daysSinceStart = 0;
+  if (L.firstDay) {
+    const start = new Date(L.firstDay);
+    const now = new Date(todayKey());
+    daysSinceStart = Math.max(1, Math.floor((now - start) / 86400000) + 1);
+  }
+  return {
+    firstDay: L.firstDay || null,
+    totalMinutes: L.totalMinutes || 0,
+    totalSessions: L.totalSessions || 0,
+    bestDay: L.bestDay || { date: null, minutes: 0 },
+    daysSinceStart,
+  };
+}
+
 function recordSession(type, minutes) {
   daily = loadDaily();
-  if (type === 'focus') { daily.sessions++; daily.focusMin += minutes; }
-  else { daily.breakMin += minutes; }
+  if (type === 'focus') {
+    daily.sessions++;
+    daily.focusMin += minutes;
+  } else {
+    daily.breakMin += minutes;
+  }
   // Add to session log
   const now = new Date();
   const timeStr = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
   const task = document.getElementById('taskInput').value.trim();
   daily.log.push({ time: timeStr, type, duration: minutes, task: task || '' });
   saveDaily(daily);
+
+  // Streak + lifetime tracking (focus sessions only)
+  if (type === 'focus') {
+    updateStreakOnSession();
+    updateLifetimeOnSession(minutes);
+  }
+
   renderDailyStats();
   renderSessionLog();
 }
@@ -573,11 +710,30 @@ function renderDailyStats() {
   const d = loadDaily();
   const dateStr = d.date.replace(/-/g, '.');
   const emoji = (THEMES[currentThemeId] && THEMES[currentThemeId].harvestEmoji) || '🍅';
+  const streak = getStreak();
+  const life = getLifetime();
+
   // Render up to 10 harvest icons inline, then "× N" if more.
   const iconsToShow = Math.min(d.sessions, 10);
   const harvestIcons = iconsToShow > 0
     ? emoji.repeat(iconsToShow) + (d.sessions > 10 ? ` ×${d.sessions}` : '')
     : '<span class="harvest-empty">— no harvest yet —</span>';
+
+  // Streak badge — 🔥 N DAY STREAK (highlights when active)
+  const streakBadge = streak.current > 0
+    ? `<span class="streak-badge active">🔥 ${streak.current} DAY STREAK</span>`
+    : `<span class="streak-badge">🌱 START YOUR STREAK</span>`;
+
+  // Lifetime line (only show if at least one session ever)
+  const lifetimeLine = life.totalSessions > 0
+    ? `<div class="lifetime-row">
+         ALL-TIME <b>${life.totalSessions}</b> ${emoji} ·
+         <b>${life.totalMinutes}</b>M FOCUSED ·
+         BEST STREAK <b>${streak.best}</b>D ·
+         BEST DAY <b>${life.bestDay.minutes}</b>M
+       </div>`
+    : '';
+
   el.innerHTML = `
     <div class="stat-date">TODAY ${dateStr}</div>
     <div class="stat">SESSIONS <b>${d.sessions}</b></div>
@@ -585,6 +741,8 @@ function renderDailyStats() {
     <div class="stat">BREAK <b>${d.breakMin}</b>M</div>
     <div class="stat">BLOCKS <b>${d.blocks}</b></div>
     <div class="harvest-row">HARVEST <span class="harvest-icons">${harvestIcons}</span></div>
+    <div class="streak-row">${streakBadge}</div>
+    ${lifetimeLine}
   `;
 }
 
@@ -1825,29 +1983,226 @@ function updateSocialProof() {
   const el = document.getElementById('socialProof');
   if (!el) return;
   const n = estimateFocusersNow();
-  el.textContent = `🌱 ${n} focusing now`;
+  // "Join N others" feels more inviting than a passive count. Also varies
+  // the copy slightly by time bucket to avoid the text feeling static.
+  const variants = [
+    `🌱 Join ${n} others focusing right now`,
+    `🌱 You're focusing with ${n} others`,
+    `🌱 ${n} people focused with you right now`,
+  ];
+  const bucket = Math.floor(Date.now() / 30000);
+  el.textContent = variants[bucket % variants.length];
 }
 
+// ═══════════════════════════════════════════
+// CANVAS SHARE CARD — "pixel art you can't help but screenshot"
+// ─────────────────────────────────────────
+// Renders a 1080x1080 Instagram-ready PNG using the same pixel sprite
+// data as the scene. Inspired by Duolingo's screenshot-tracking strategy:
+// design moments worth sharing and let the image itself do the marketing.
+//
+// The card contains:
+//   - Large pixel Steve (standing)
+//   - Today's harvest (emoji row)
+//   - Focus minutes
+//   - Streak flame
+//   - pomodorocraft.com watermark
+// ═══════════════════════════════════════════
+function drawSpriteToCanvas(ctx, spriteData, colorMap, ox, oy, scale) {
+  spriteData.forEach((row, ry) => {
+    [...row].forEach((ch, rx) => {
+      if (ch === '.' || !colorMap[ch]) return;
+      ctx.fillStyle = colorMap[ch];
+      ctx.fillRect(ox + rx * scale, oy + ry * scale, scale, scale);
+    });
+  });
+}
+
+async function ensureFontLoaded() {
+  // Wait for Press Start 2P to be ready; ignore failure (fallback is monospace)
+  if (document.fonts && document.fonts.load) {
+    try { await document.fonts.load('48px "Press Start 2P"'); } catch(e) {}
+  }
+}
+
+async function generateShareCard() {
+  await ensureFontLoaded();
+
+  const W = 1080, H = 1080;
+  const canvas = document.createElement('canvas');
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext('2d');
+  ctx.imageSmoothingEnabled = false;  // keep pixel-art crisp
+
+  const theme = THEMES[currentThemeId];
+  const d = loadDaily();
+  const streak = getStreak();
+  const life = getLifetime();
+  const emoji = theme.harvestEmoji || '🍅';
+
+  // ── Sky gradient (matches in-app background) ───────────────
+  const sky = ctx.createLinearGradient(0, 0, 0, H);
+  sky.addColorStop(0, '#7EC8E3');
+  sky.addColorStop(1, '#B8E4F0');
+  ctx.fillStyle = sky;
+  ctx.fillRect(0, 0, W, H);
+
+  // ── Pixel clouds (decorative) ──────────────────────────────
+  ctx.fillStyle = '#FFFFFF';
+  [[120, 140, 220], [760, 180, 180], [400, 90, 160]].forEach(([x, y, w]) => {
+    ctx.fillRect(x, y, w, 24);
+    ctx.fillRect(x + 20, y - 20, w - 40, 20);
+    ctx.fillRect(x + 10, y + 24, w - 20, 20);
+  });
+
+  // ── Sun ────────────────────────────────────────────────────
+  ctx.fillStyle = '#FFD700';
+  const sunCx = 880, sunCy = 160;
+  // Round sun 8x8 pattern at scale 14
+  const sunSprite = ['..YYYY..','.YYYYYY.','YYYYYYYY','YYYYYYYY','YYYYYYYY','YYYYYYYY','.YYYYYY.','..YYYY..'];
+  drawSpriteToCanvas(ctx, sunSprite, { Y: '#FFD700' }, sunCx - 56, sunCy - 56, 14);
+  // Rays
+  [[sunCx + 80, sunCy - 6, 30, 12], [sunCx - 110, sunCy - 6, 30, 12],
+   [sunCx - 6, sunCy - 110, 12, 30], [sunCx - 6, sunCy + 80, 12, 30]]
+    .forEach(([x, y, w, h]) => ctx.fillRect(x, y, w, h));
+
+  // ── Ground band ────────────────────────────────────────────
+  ctx.fillStyle = '#5B8731';  // grass top
+  ctx.fillRect(0, 780, W, 30);
+  ctx.fillStyle = '#866043';  // dirt
+  ctx.fillRect(0, 810, W, 30);
+  ctx.fillStyle = '#6B4423';  // dirt dark
+  ctx.fillRect(0, 840, W, 20);
+
+  // ── Big Steve (scaled sprite) ──────────────────────────────
+  // Steve body 8 cols × 12 rows at scale 24 = 192x288 sprite area
+  const steveScale = 24;
+  const steveW = 8 * steveScale;
+  const steveOx = (W - steveW) / 2;
+  const steveOy = 780 - 12 * steveScale;  // feet on ground line
+  drawSpriteToCanvas(ctx, STEVE_BODY, CHAR, steveOx, steveOy, steveScale);
+  drawSpriteToCanvas(ctx, LEG_STAND, CHAR,
+    steveOx, steveOy + STEVE_BODY.length * steveScale, steveScale);
+
+  // ── Title with pixel stroke ────────────────────────────────
+  ctx.font = 'bold 64px "Press Start 2P", monospace';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  const title = 'POMODORO CRAFT';
+  // Stroke (multiple offsets for pixel outline look)
+  ctx.fillStyle = '#000';
+  [[-4,0],[4,0],[0,-4],[0,4],[-4,-4],[4,4],[-4,4],[4,-4]].forEach(([dx,dy]) => {
+    ctx.fillText(title, W/2 + dx, 90 + dy);
+  });
+  ctx.fillStyle = '#FFFFFF';
+  ctx.fillText(title, W/2, 90);
+
+  // ── Stats card (semi-transparent panel at bottom) ─────────
+  const cardX = 80, cardY = 900, cardW = W - 160, cardH = 130;
+  ctx.fillStyle = 'rgba(0,0,0,0.55)';
+  ctx.fillRect(cardX, cardY, cardW, cardH);
+  // Border (pixel style)
+  ctx.strokeStyle = '#FFFFFF';
+  ctx.lineWidth = 3;
+  ctx.strokeRect(cardX, cardY, cardW, cardH);
+
+  // ── Harvest row (big emojis) ──────────────────────────────
+  ctx.font = '52px "Apple Color Emoji", "Segoe UI Emoji", sans-serif';
+  ctx.textBaseline = 'middle';
+  const iconsToShow = Math.min(d.sessions, 8);
+  if (iconsToShow > 0) {
+    let emojis = emoji.repeat(iconsToShow);
+    if (d.sessions > 8) emojis += ` ×${d.sessions}`;
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillText(emojis, W/2, cardY + 45);
+  } else {
+    ctx.font = '28px "Press Start 2P", monospace';
+    ctx.fillStyle = '#BBB';
+    ctx.fillText('READY TO HARVEST', W/2, cardY + 45);
+  }
+
+  // ── Stats line (focus minutes, streak) ────────────────────
+  ctx.font = '22px "Press Start 2P", monospace';
+  ctx.fillStyle = '#FFD700';
+  const statsParts = [];
+  statsParts.push(`${d.focusMin} MIN FOCUSED`);
+  if (streak.current > 0) statsParts.push(`🔥 ${streak.current} DAY STREAK`);
+  if (life.totalMinutes > 0) statsParts.push(`${life.totalMinutes}M LIFETIME`);
+  ctx.fillText(statsParts.join('  ·  '), W/2, cardY + 100);
+
+  // ── URL watermark ─────────────────────────────────────────
+  ctx.font = '18px "Press Start 2P", monospace';
+  ctx.fillStyle = '#333333';
+  ctx.textBaseline = 'alphabetic';
+  // Subtle shadow
+  ctx.fillStyle = 'rgba(0,0,0,0.4)';
+  ctx.fillText('pomodorocraft.com', W/2 + 2, H - 30 + 2);
+  ctx.fillStyle = '#FFFFFF';
+  ctx.fillText('pomodorocraft.com', W/2, H - 30);
+
+  return new Promise(resolve => canvas.toBlob(resolve, 'image/png', 0.95));
+}
+
+// ═══════════════════════════════════════════
+// SHARE FLOW — generate card → native share → fallback download
+// ═══════════════════════════════════════════
 async function shareHarvest() {
   const shareUrl = 'https://stevekim0417.github.io/pomodoro-craft/';
   const text = buildShareText();
-  const payload = { title: 'Pomodoro Craft', text, url: shareUrl };
 
-  // Web Share API — mobile & some desktop browsers
-  if (navigator.share) {
-    try {
-      await navigator.share(payload);
-      return;
-    } catch (err) {
-      // user cancelled — silently ignore
-      if (err && err.name === 'AbortError') return;
+  // Show loading state on button
+  const btn = document.getElementById('shareBtn');
+  const original = btn ? btn.textContent : null;
+  if (btn) { btn.textContent = '🎨 Generating...'; btn.disabled = true; }
+
+  try {
+    const blob = await generateShareCard();
+    const file = new File([blob], 'pomodoro-harvest.png', { type: 'image/png' });
+
+    // Try Web Share API with file attachment (mobile, PWA)
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      try {
+        await navigator.share({
+          files: [file],
+          title: 'Pomodoro Craft',
+          text,
+          url: shareUrl,
+        });
+        return;
+      } catch (err) {
+        if (err && err.name === 'AbortError') return;
+        // fall through to download
+      }
     }
-  }
 
-  // Fallback: Twitter intent URL
-  const tweetText = encodeURIComponent(text + '\n' + shareUrl);
-  const twitterUrl = `https://twitter.com/intent/tweet?text=${tweetText}`;
-  window.open(twitterUrl, '_blank', 'noopener');
+    // Fallback 1: download the PNG so the user can manually attach it
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `pomodoro-craft-${todayKey()}.png`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    // Fallback 2: also open a tweet pre-filled so desktop users have
+    // a one-click path even without file upload support.
+    const tweetText = encodeURIComponent(text + '\n' + shareUrl);
+    const twitterUrl = `https://twitter.com/intent/tweet?text=${tweetText}`;
+    window.open(twitterUrl, '_blank', 'noopener');
+  } catch (e) {
+    // As a last resort, fall back to the old text-only share
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: 'Pomodoro Craft', text, url: shareUrl });
+      } catch (err) { /* ignore */ }
+    } else {
+      const tweetText = encodeURIComponent(text + '\n' + shareUrl);
+      window.open(`https://twitter.com/intent/tweet?text=${tweetText}`, '_blank', 'noopener');
+    }
+  } finally {
+    if (btn) { btn.textContent = original; btn.disabled = false; }
+  }
 }
 
 // ═══════════════════════════════════════════
