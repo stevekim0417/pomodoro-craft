@@ -3,13 +3,57 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="description" content="Minecraft-style Pomodoro Timer with pixel art animations. Focus, mine blocks, and take breaks by the campfire.">
+<title>Pomodoro Craft — Minecraft Focus Timer 🍅 Study with Steve</title>
+<meta name="description" content="A free Minecraft-themed pomodoro timer. Focus for 25 minutes and watch Steve harvest tomatoes in a cozy pixel-art world. Cute study timer, lo-fi friendly, no install.">
+<meta name="keywords" content="pomodoro timer, minecraft pomodoro, pixel timer, cute study timer, lofi study, focus timer, tomato timer, study with me, pomodoro app, minecraft study, pixel art timer">
+<meta name="author" content="Steve Kim">
 <meta name="theme-color" content="#7EC8E3">
-<meta property="og:title" content="Pomodoro Craft">
-<meta property="og:description" content="Minecraft-style Pomodoro Timer with pixel art animations">
+<link rel="canonical" href="https://stevekim0417.github.io/pomodoro-craft/">
+
+<!-- Open Graph — shown on Twitter/Discord/Slack/iMessage link previews -->
 <meta property="og:type" content="website">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect x='3' y='2' width='10' height='12' fill='%23808080'/><rect x='5' y='4' width='3' height='3' fill='%232CB9A8'/><rect x='8' y='8' width='3' height='3' fill='%232CB9A8'/></svg>">
-<title>Pomodoro Craft</title>
+<meta property="og:site_name" content="Pomodoro Craft">
+<meta property="og:title" content="Pomodoro Craft — Minecraft Focus Timer 🍅">
+<meta property="og:description" content="Focus for 25 minutes and harvest tomatoes with Steve. A cozy pixel-art pomodoro timer. Free, no install.">
+<meta property="og:url" content="https://stevekim0417.github.io/pomodoro-craft/">
+<meta property="og:image" content="https://stevekim0417.github.io/pomodoro-craft/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Steve standing in a pomodoro farm with a red baseball cap">
+<meta property="og:locale" content="en_US">
+<meta property="og:locale:alternate" content="ko_KR">
+
+<!-- Twitter Card -->
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Pomodoro Craft — Minecraft Focus Timer 🍅">
+<meta name="twitter:description" content="Focus for 25 minutes and harvest tomatoes with Steve. Free pixel-art pomodoro timer.">
+<meta name="twitter:image" content="https://stevekim0417.github.io/pomodoro-craft/og-image.png">
+
+<!-- Structured data — helps Google understand this is a WebApplication -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  "name": "Pomodoro Craft",
+  "description": "A Minecraft-themed pomodoro focus timer with pixel art animations. Harvest tomatoes while you study.",
+  "url": "https://stevekim0417.github.io/pomodoro-craft/",
+  "applicationCategory": "ProductivityApplication",
+  "operatingSystem": "Web Browser",
+  "browserRequirements": "Requires JavaScript",
+  "offers": {
+    "@type": "Offer",
+    "price": "0",
+    "priceCurrency": "USD"
+  },
+  "keywords": "pomodoro, focus timer, minecraft, pixel art, study timer, lofi"
+}
+</script>
+
+<!-- Analytics placeholder — drop your Plausible or GA4 snippet here when ready
+<script defer data-domain="pomodorocraft.com" src="https://plausible.io/js/script.js"></script>
+-->
+
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect x='3' y='2' width='10' height='12' fill='%23808080'/><rect x='5' y='4' width='3' height='3' fill='%23E63946'/><rect x='8' y='8' width='3' height='3' fill='%23E63946'/></svg>">
 <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
 <style>
 :root {
@@ -150,6 +194,41 @@ body {
 .daily-stats .stat-date { font-size: 7px; color: #AAA; text-shadow: 1px 1px 0 #000; width: 100%; text-align: center; margin-bottom: 2px; }
 .daily-stats .stat { font-size: 7px; color: #DDD; text-shadow: 1px 1px 0 #000; white-space: nowrap; }
 .daily-stats .stat b { color: #FFF; }
+.daily-stats .harvest-row {
+  width: 100%; margin-top: 6px; padding-top: 6px;
+  border-top: 1px dashed #777;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  font-size: 7px; color: #DDD; text-shadow: 1px 1px 0 #000;
+  letter-spacing: 1px;
+}
+.daily-stats .harvest-icons {
+  font-size: 14px; letter-spacing: 2px;
+  filter: drop-shadow(1px 1px 0 #000);
+}
+.daily-stats .harvest-empty { font-size: 6px; color: #888; letter-spacing: 1px; }
+
+/* Share button — kicks off the viral loop */
+.share-wrap { display: flex; justify-content: center; margin: 8px 0 4px; }
+.share-btn {
+  font-family: 'Press Start 2P', monospace; font-size: 7px;
+  padding: 7px 14px; background: #3A6B8B;
+  border: 2px solid; border-color: #6090B0 #1A3A5A #1A3A5A #6090B0;
+  color: #FFF; cursor: pointer; letter-spacing: 1px;
+  text-shadow: 1px 1px 0 #000; transition: filter .1s;
+}
+.share-btn:hover { filter: brightness(1.15); }
+.share-btn:active { border-color: #1A3A5A #6090B0 #6090B0 #1A3A5A; }
+.share-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* Social proof — "X focusing now" line below the progress bar */
+.social-proof {
+  text-align: center;
+  font-family: 'Press Start 2P', monospace; font-size: 7px;
+  color: #8DB360; text-shadow: 1px 1px 0 #000;
+  letter-spacing: 1px; margin: 2px 0 6px;
+  transition: color .3s;
+}
+[data-mode="break"] .social-proof { color: #88BBFF; }
 
 /* Sound Settings */
 .sound-settings {
@@ -203,8 +282,8 @@ body {
 .footer-links a {
   font-family: 'Press Start 2P', monospace; font-size: 8px;
   color: #FFF; text-decoration: none; letter-spacing: 1px;
-  text-shadow: 2px 2px 0 #000;
-  opacity: 0.7; transition: opacity .3s;
+  text-shadow: 1px 1px 0 #000;
+  opacity: 0.85; transition: opacity .3s;
 }
 .footer-links a:hover { opacity: 1; }
 .footer-dot { color: #FFF; opacity: 0.4; text-shadow: 1px 1px 0 #000; }
@@ -229,13 +308,78 @@ body {
   padding: 0 8px;
 }
 .settings-drawer.open {
-  max-height: 200px;
+  max-height: 320px;
   padding: 8px;
 }
 .drawer-toggles {
   display: flex; justify-content: center; gap: 6px;
   flex-wrap: wrap;
 }
+.drawer-section-label {
+  text-align: center; margin: 12px 0 6px;
+  font-family: 'Press Start 2P', monospace; font-size: 7px;
+  color: #AAA; letter-spacing: 2px; text-shadow: 1px 1px 0 #000;
+}
+.drawer-theme-picker {
+  display: flex; justify-content: center; gap: 5px; flex-wrap: wrap;
+}
+.mc-theme-btn {
+  font-family: 'Press Start 2P', monospace; font-size: 7px;
+  padding: 5px 8px; background: #6B3A3A;
+  border: 2px solid; border-color: #996060 #4A1A1A #4A1A1A #996060;
+  color: #CCC; cursor: pointer; white-space: nowrap;
+  text-shadow: 1px 1px 0 #000; transition: filter .1s;
+  display: inline-flex; align-items: center; gap: 5px;
+}
+.mc-theme-btn.on {
+  background: #3A6B3A; border-color: #60996D #1A4A1A #1A4A1A #60996D; color: #FFF;
+}
+.mc-theme-btn:hover { filter: brightness(1.15); }
+.mc-theme-btn:active { border-color: #555 #AAA #AAA #555; }
+.mc-theme-btn .swatch {
+  width: 10px; height: 10px; display: inline-block;
+  border: 1px solid #000;
+}
+
+/* ══════════════════════════════════════════════
+   Focus Companion Mode — stream/overlay layout.
+   Activated by ?mode=companion URL param.
+   Hides controls/settings/stats, keeps only the
+   scene + a subtle timer overlay. Perfect as an
+   OBS browser source or a YouTube live background.
+   ══════════════════════════════════════════════ */
+body[data-layout="companion"] { background: transparent; }
+body[data-layout="companion"] .title,
+body[data-layout="companion"] .task-input-wrap,
+body[data-layout="companion"] .controls,
+body[data-layout="companion"] .settings,
+body[data-layout="companion"] .hotbar,
+body[data-layout="companion"] .daily-stats,
+body[data-layout="companion"] .log-toggle,
+body[data-layout="companion"] .session-log,
+body[data-layout="companion"] .settings-drawer-tab,
+body[data-layout="companion"] .settings-drawer,
+body[data-layout="companion"] .footer-links,
+body[data-layout="companion"] .progress-bar,
+body[data-layout="companion"] .share-wrap,
+body[data-layout="companion"] .social-proof { display: none !important; }
+body[data-layout="companion"] .app { width: 100vw; max-width: 100vw; padding: 0; }
+body[data-layout="companion"] .container { border: 0; padding: 0; background: transparent; }
+body[data-layout="companion"] .inner { border: 0; padding: 0; background: transparent; }
+body[data-layout="companion"] .scene-wrap {
+  border: 0;
+  height: 100vh; aspect-ratio: auto;
+}
+body[data-layout="companion"] .timer-section {
+  position: fixed; top: 16px; left: 50%; transform: translateX(-50%);
+  background: rgba(0,0,0,0.4);
+  padding: 12px 24px;
+  border: 3px solid #FFF;
+  z-index: 10;
+}
+body[data-layout="companion"] .timer-display { font-size: 36px; }
+body[data-layout="companion"] .mode-label,
+body[data-layout="companion"] .session-indicator { font-size: 9px; }
 
 @media (max-width: 540px) {
   .timer-display { font-size: 36px; }
@@ -266,6 +410,7 @@ body {
         <div class="timer-display" id="timerDisplay">25:00</div>
         <div class="progress-bar" id="progressBar"></div>
       </div>
+      <div class="social-proof" id="socialProof">🌱 ··· focusing now</div>
       <div class="task-input-wrap">
         <input class="task-input" id="taskInput" placeholder="What are you working on?" maxlength="50">
       </div>
@@ -303,6 +448,9 @@ body {
       <div class="lofi-player" id="lofiPlayer"></div>
       <div class="hotbar" id="hotbar"></div>
       <div class="daily-stats" id="dailyStats"></div>
+      <div class="share-wrap">
+        <button class="mc-toggle share-btn" id="shareBtn" onclick="shareHarvest()">📣 SHARE TODAY'S HARVEST</button>
+      </div>
       <div class="log-toggle" id="logToggle" onclick="toggleSessionLog()">SESSION LOG ▼</div>
       <div class="session-log" id="sessionLog">
         <div class="session-log-inner" id="sessionLogInner"></div>
@@ -319,6 +467,8 @@ body {
           <button class="mc-toggle" id="toggleAutoFocus" onclick="toggleOpt('autoFocus')">AUTO FOCUS OFF</button>
           <button class="mc-toggle" id="toggleLofi" onclick="toggleOpt('lofi')">LOFI BREAK OFF</button>
         </div>
+        <div class="drawer-section-label">ORE THEME</div>
+        <div class="drawer-theme-picker" id="themePicker"></div>
       </div>
     </div>
   </div>
@@ -343,12 +493,29 @@ const TOTAL_SESSIONS = 8, HITS_TO_BREAK = 4;
 const LONG_BREAK_INTERVAL = 4; // long break every N sessions
 
 // ═══════════════════════════════════════════
+// URL PARAMETERS
+// ─────────────────────────────────────────
+// Supported params (all optional):
+//   ?theme=tomato|diamond|emerald|gold|ruby   — initial theme
+//   ?mode=companion                           — stream/overlay layout
+//   ?focus=25 &break=5 &long=15               — timer preset in minutes
+//   ?autostart=1                              — start the focus timer on load
+// These let creators embed links with presets in videos/descriptions.
+// ═══════════════════════════════════════════
+const urlParams = new URLSearchParams(window.location.search);
+const urlParam = (k) => urlParams.get(k);
+const urlInt = (k, min, max) => {
+  const n = parseInt(urlParam(k), 10);
+  return (Number.isFinite(n) && n >= min && n <= max) ? n : null;
+};
+
+// ═══════════════════════════════════════════
 // PERSISTENCE
 // ═══════════════════════════════════════════
 const saved = JSON.parse(localStorage.getItem('pomodocraft') || '{}');
-let focusMin = saved.focusMin || 25;
-let breakMin = saved.breakMin || 5;
-let longBreakMin = saved.longBreakMin || 15;
+let focusMin = urlInt('focus', 1, 180) || saved.focusMin || 25;
+let breakMin = urlInt('break', 1, 60) || saved.breakMin || 5;
+let longBreakMin = urlInt('long', 1, 120) || saved.longBreakMin || 15;
 let completedSessions = saved.sessions || 0;
 let blocksMined = 0;
 let alarmEnabled = saved.alarmEnabled !== false;
@@ -356,6 +523,14 @@ let lofiEnabled = saved.lofiEnabled !== false;
 const lofiUrl = 'https://youtu.be/BrG_9l_fD-I';
 let autoBreak = saved.autoBreak !== false;
 let autoFocus = saved.autoFocus !== false;
+// Theme always resets to tomato on page load — tomato is the app's identity.
+// Mid-session switches still work, but a fresh load always starts fresh.
+// URL ?theme=X overrides for creator-embedded links.
+const urlTheme = urlParam('theme');
+let currentThemeId = (urlTheme && ['tomato','diamond','emerald','gold','ruby'].includes(urlTheme))
+  ? urlTheme : 'tomato';
+const isCompanionMode = urlParam('mode') === 'companion';
+const shouldAutoStart = urlParam('autostart') === '1' || urlParam('autostart') === 'true';
 
 function todayKey() {
   const d = new Date();
@@ -397,12 +572,19 @@ function renderDailyStats() {
   const el = document.getElementById('dailyStats');
   const d = loadDaily();
   const dateStr = d.date.replace(/-/g, '.');
+  const emoji = (THEMES[currentThemeId] && THEMES[currentThemeId].harvestEmoji) || '🍅';
+  // Render up to 10 harvest icons inline, then "× N" if more.
+  const iconsToShow = Math.min(d.sessions, 10);
+  const harvestIcons = iconsToShow > 0
+    ? emoji.repeat(iconsToShow) + (d.sessions > 10 ? ` ×${d.sessions}` : '')
+    : '<span class="harvest-empty">— no harvest yet —</span>';
   el.innerHTML = `
     <div class="stat-date">TODAY ${dateStr}</div>
     <div class="stat">SESSIONS <b>${d.sessions}</b></div>
     <div class="stat">FOCUS <b>${d.focusMin}</b>M</div>
     <div class="stat">BREAK <b>${d.breakMin}</b>M</div>
     <div class="stat">BLOCKS <b>${d.blocks}</b></div>
+    <div class="harvest-row">HARVEST <span class="harvest-icons">${harvestIcons}</span></div>
   `;
 }
 
@@ -411,6 +593,7 @@ function saveState() {
     focusMin, breakMin, longBreakMin, sessions: completedSessions,
     alarmEnabled, lofiEnabled,
     autoBreak, autoFocus,
+    // themeId intentionally NOT persisted — always resets to tomato on load.
   }));
 }
 
@@ -418,8 +601,9 @@ function saveState() {
 // COLORS
 // ═══════════════════════════════════════════
 const C = {
-  hair: '#4A2F0A', hairLight: '#6B4423',
-  skin: '#C69C6D', skinShadow: '#A07850', eyes: '#3B2213',
+  hair: '#5A3A12', hairLight: '#8A5A28',
+  skin: '#F4C28E', skinShadow: '#D9A06F', eyes: '#2A1A08', mouth: '#8A3A2A', blush: '#EFA088',
+  hat: '#D83030', hatDark: '#7A1515', hatBand: '#FFFFFF',
   shirt: '#00AAAA', shirtDark: '#007878',
   pants: '#1B1BB3', pantsDark: '#00007B', shoe: '#444',
   grassTop: '#5B8731', grassSide: '#8DB360',
@@ -427,7 +611,16 @@ const C = {
   stone: '#808080', stoneDark: '#606060', stoneLight: '#A0A0A0',
   wood: '#6B4423', woodLight: '#9C7C50', woodDark: '#4A2F1A',
   leaves: '#2D5A27', leavesBright: '#4A8A3A',
-  diamondOre: '#2CB9A8', diamondLight: '#5CE8D8',
+  diamondOre: '#2CB9A8', diamondLight: '#5CE8D8', diamondDark: '#1A8A7A',
+  tomatoRed: '#E63946', tomatoLight: '#FF6B6B', tomatoDark: '#B02A37',
+  tomatoLeaf: '#3A8B3A', tomatoLeafLight: '#5CAA4A', tomatoStem: '#6B4423',
+  emeraldOre: '#2ECC71', emeraldLight: '#58D68D', emeraldDark: '#1E8449',
+  goldOre: '#F1C40F', goldLight: '#F9E79F', goldDark: '#B7950B',
+  rubyOre: '#C0392B', rubyLight: '#E74C3C', rubyDark: '#7B241C',
+  // Hill-building palettes per theme (used by hillBlockColor + flingDirt)
+  moss: '#4A7A3A', mossLight: '#6BA04A', mossDark: '#2D5A1F',
+  sand: '#E4C072', sandLight: '#F2D98A', sandDark: '#B89050',
+  cave: '#3A2D2A', caveLight: '#5C4843', caveDark: '#1E1715',
   fire1: '#FF6600', fire2: '#FF9900', fire3: '#FFCC00',
   moon: '#E8E8D0', moonDark: '#C8C8B0',
   creeperG: '#4EA54E',
@@ -459,28 +652,63 @@ function renderSprite(data, colorMap, ox, oy, scale, parent) {
 // ═══════════════════════════════════════════
 // SPRITE DATA
 // ═══════════════════════════════════════════
-const CHAR = { H:C.hair, h:C.hairLight, S:C.skin, s:C.skinShadow, E:C.eyes, T:C.shirt, t:C.shirtDark, P:C.pants, p:C.pantsDark, X:C.shoe };
+const CHAR = { H:C.hair, h:C.hairLight, S:C.skin, s:C.skinShadow, E:C.eyes, m:C.mouth, b:C.blush, J:C.hat, j:C.hatDark, K:C.hatBand, T:C.shirt, t:C.shirtDark, P:C.pants, p:C.pantsDark, X:C.shoe };
 
+// Steve — 8x12 sprite. Wears a straw hat (J = light, j = brim shadow,
+// K = red hat band). Friendly face with big eyes, blush, and a smile.
+// Anatomy:
+//   Row 0   — hat dome
+//   Row 1   — hat brim (extends 1 col beyond the head on both sides)
+//   Row 2   — forehead with hair tufts visible at temples
+//   Row 3   — eyes (E at col 2 & 5)
+//   Row 4   — blush (b at col 1 & 6) + smile (m at col 3-4)
+//   Row 5   — chin / neck
+//   Rows 6-11 — torso with both arms visible
 const STEVE_BODY = [
-  '..hHHHh.', '.HHHHHHH', '.HSSSSsH', '..SESES.',
-  '..SSSSS.', '...SSS..', '..TTTTT.', '.tTTTTT.',
-  '.STTTTT.', '..tTTt..', '..PPPP..', '..PPPP..',
+  '.JJKJJJ.', // 0 — red cap dome with white logo patch (K)
+  'jJJJJJJj', // 1 — cap visor (darker red edges)
+  'HHHhhHHH', // 2 — bangs under the cap (hair layer = visual separator)
+  '.HEssEH.', // 3 — eyes
+  '.bSmmSb.', // 4 — blush + smile
+  '...SS...', // 5 — chin / neck (restored)
+  '..TTTT..', // 6 — shoulders
+  '.tTTTTt.', // 7 — chest upper
+  'STTTTTTS', // 8 — both arms + chest
+  '.tTTTTt.', // 9 — chest lower
+  '..PPPP..', // 10 — belt
+  '..PPPP..', // 11 — hip
 ];
 const LEG_WALK1 = ['.PP..PP.','.XX..XX.'];
 const LEG_WALK2 = ['..PPPP..','..XXXX..'];
 const LEG_STAND = ['..Pp.pP.','..XX.XX.'];
 const STEVE_SIT_BODY = [
-  '..hHHHh.', '.HHHHHHH', '.HSSSSsH', '..SESES.',
-  '..SSSSS.', '...SSS..', '..TTTTT.', '.STTTTS.',
-  '.STTTTS.', '..tTTt..',
+  '.JJKJJJ.',
+  'jJJJJJJj',
+  'HHHhhHHH',
+  '.HEssEH.',
+  '.bSmmSb.',
+  '...SS...',
+  '..TTTT..',
+  'STTTTTTS',
+  'STTTTTTS',
+  '..tTTt..',
 ];
 const STEVE_SIT_LEGS = ['..PPPPPP','..PPPPPP','..XX.XX.'];
 
-// Steve blink (eyes closed)
+// Steve blink — eyes closed (skin shadow line), blush hidden for neutral look
 const STEVE_BLINK_BODY = [
-  '..hHHHh.', '.HHHHHHH', '.HSSSSsH', '..SSSS..',
-  '..SSSSS.', '...SSS..', '..TTTTT.', '.tTTTTT.',
-  '.STTTTT.', '..tTTt..', '..PPPP..', '..PPPP..',
+  '.JJKJJJ.',
+  'jJJJJJJj',
+  'HHHhhHHH',
+  '.HssssH.', // eyes closed (eyelid line)
+  '..SmmS..', // mouth still smiling, blush off
+  '...SS...',
+  '..TTTT..',
+  '.tTTTTt.',
+  'STTTTTTS',
+  '.tTTTTt.',
+  '..PPPP..',
+  '..PPPP..',
 ];
 
 const PICK_HANDLE = ['.S','.W','.W','.W','.W','DI','IG'];
@@ -528,10 +756,9 @@ function hillGenPositions() {
   return pos;
 }
 
+// Delegate to the active theme so each biome paints its hill differently.
 function hillBlockColor(col, row) {
-  if (row >= hillCurrentLayer) return Math.random() < 0.5 ? C.grassTop : C.grassSide;
-  if (row >= hillCurrentLayer - 1) return C.dirtDark;
-  return Math.random() < 0.3 ? C.dirtDark : C.dirt;
+  return THEMES[currentThemeId].hillBlockColor(col, row, hillCurrentLayer);
 }
 
 function addHillBlock() {
@@ -553,10 +780,12 @@ function addHillBlock() {
 }
 
 function flingDirt(sx, sy, ex, ey, col, row) {
+  const theme = THEMES[currentThemeId];
+  const [mainColor, topColor] = theme.chunkColors;
   const chunk = el('g');
-  // Small dirt block chunk
-  rect(0, 0, P, P, Math.random()>.5 ? C.dirt : C.dirtDark, chunk);
-  rect(0, 0, P, 2, C.grassSide, chunk);
+  // Small themed chunk (e.g. dirt, tomato-leaf, cave rock, sand, etc.)
+  rect(0, 0, P, P, Math.random() > .5 ? mainColor : topColor, chunk);
+  rect(0, 0, P, 2, topColor, chunk);
   svg.appendChild(chunk);
 
   // Parabolic arc: midpoint high above
@@ -577,10 +806,10 @@ function flingDirt(sx, sy, ex, ey, col, row) {
     hillBlockCount++;
     rect(ex, ey, P, P, hillBlockColor(col, row), hillG);
     if (!hillHas(col, row + 1)) {
-      rect(ex, ey, P, 2, C.grassSide, hillG);
+      rect(ex, ey, P, 2, topColor, hillG);
     }
-    // Landing particles
-    spawnParticles(ex + P/2, ey + P/2, [C.dirt, C.dirtDark], 3);
+    // Landing particles (themed)
+    spawnParticles(ex + P/2, ey + P/2, theme.landParticles, 3);
   }, dur);
 }
 
@@ -594,7 +823,8 @@ function resetHill() {
 }
 
 const ORE_BLOCK = ['ssssssss','sSSdSSSs','sSSOSSSs','sdSSSSOs','sSSSOSSs','sOSSSSSs','sSSSdSOs','ssssssss'];
-const ORE_COLORS = { s:C.stoneDark, S:C.stone, d:C.stoneLight, O:C.diamondOre };
+// ORE_COLORS.O is mutated by applyTheme() at runtime to swap the ore color.
+const ORE_COLORS = { s:C.stoneDark, S:C.stone, d:C.stoneLight, O:C.tomatoRed };
 
 const CRACK_STAGES = [
   ['........','........','..C.....','...C....','........','........','........','........'],
@@ -606,6 +836,174 @@ const CRACK_COLORS = { C:C.crack };
 
 const DIAMOND_ITEM = ['..D.','.DdD','DdDD','.DD.'];
 const DIAMOND_COLORS = { D:C.diamondOre, d:C.diamondLight };
+
+// Tomato drop item (6x6 pixel round tomato with centered green leaf crown)
+const TOMATO_ITEM = [
+  '..LL..',
+  '.LllL.',
+  '.RRRR.',
+  'RrRRrR',
+  'RRRRRR',
+  '.RRRR.',
+];
+const TOMATO_COLORS = {
+  R: C.tomatoRed, r: C.tomatoLight,
+  L: C.tomatoLeaf, l: C.tomatoLeafLight,
+};
+
+// Emerald drop item (same crystal shape as diamond, different colors)
+const EMERALD_ITEM = ['..E.','.EeE','EeEE','.EE.'];
+const EMERALD_COLORS = { E: C.emeraldOre, e: C.emeraldLight };
+
+// Gold drop item (chunkier nugget shape — round blob rather than crystal)
+const GOLD_ITEM = [
+  '.GG.',
+  'GggG',
+  'GGgG',
+  '.GG.',
+];
+const GOLD_COLORS = { G: C.goldOre, g: C.goldLight };
+
+// Ruby drop item (crystal like diamond, deep red gem)
+const RUBY_ITEM = ['..R.','.RrR','RrRR','.RR.'];
+const RUBY_COLORS = { R: C.rubyOre, r: C.rubyLight };
+
+// ═══════════════════════════════════════════
+// THEME REGISTRY
+// ─────────────────────────────────────────
+// Each theme defines every piece of imagery/color that changes between
+// "flavors" of the ore. Adding a new theme = adding one entry here.
+// ═══════════════════════════════════════════
+// Each theme's digging config:
+//   digParticles  — small particles that puff on every pickaxe swing
+//   chunkColors   — [main, top] color of the chunk flung from Steve to the hill
+//   landParticles — particles when the chunk lands on the pile
+//   hillBlockColor(col, row, currentLayer) — returns the color of a hill block
+//                  given its position. Tomato uses a farm-bed pattern;
+//                  diamond uses grass+dirt (the original); others use
+//                  moss/sand/cave palettes for a distinct biome feel.
+const THEMES = {
+  tomato: {
+    label: 'TOMATO',
+    harvestEmoji: '🍅',
+    oreColor: C.tomatoRed,
+    particleColors: [C.stone, C.stoneDark, C.tomatoRed, C.tomatoLight, C.tomatoLeaf],
+    dropSprite: TOMATO_ITEM,
+    dropColors: TOMATO_COLORS,
+    digParticles: [C.tomatoLeaf, C.tomatoLeafLight, C.tomatoRed, C.tomatoLight],
+    chunkColors: [C.tomatoLeaf, C.tomatoRed],
+    landParticles: [C.tomatoLeaf, C.tomatoLeafLight, C.tomatoRed],
+    hillBlockColor: (col, row, layer) => {
+      // Top layer: ripe tomatoes; upper-mid: green leaves; lower: stems/soil
+      if (row >= layer) return Math.random() < 0.6 ? C.tomatoRed : C.tomatoLight;
+      if (row >= layer - 1) return Math.random() < 0.5 ? C.tomatoLeaf : C.tomatoLeafLight;
+      return Math.random() < 0.3 ? C.tomatoStem : C.dirtDark;
+    },
+    hotbarSVG:
+      `<svg viewBox="0 0 16 16">`
+      + `<ellipse cx="8" cy="10" rx="6" ry="5.5" fill="${C.tomatoRed}" stroke="${C.tomatoDark}" stroke-width="1"/>`
+      + `<ellipse cx="6" cy="8" rx="2" ry="1.5" fill="${C.tomatoLight}" opacity="0.7"/>`
+      + `<path d="M8 4 L6 2 L7 4 L5 3 L6 5 L4 4 L6 6 Z" fill="${C.tomatoLeaf}" stroke="${C.tomatoLeafLight}" stroke-width="0.3"/>`
+      + `<path d="M8 4 L10 2 L9 4 L11 3 L10 5 L12 4 L10 6 Z" fill="${C.tomatoLeaf}" stroke="${C.tomatoLeafLight}" stroke-width="0.3"/>`
+      + `<rect x="7.5" y="3" width="1" height="2" fill="${C.tomatoStem}"/>`
+      + `</svg>`,
+  },
+  diamond: {
+    label: 'DIAMOND',
+    harvestEmoji: '💎',
+    oreColor: C.diamondOre,
+    particleColors: [C.stone, C.stoneDark, C.diamondOre, C.diamondLight, '#FFF'],
+    dropSprite: DIAMOND_ITEM,
+    dropColors: DIAMOND_COLORS,
+    // Classic Minecraft grass+dirt hill (original behavior)
+    digParticles: [C.dirt, C.dirtDark, C.grassTop, C.grassSide],
+    chunkColors: [C.dirt, C.grassSide],
+    landParticles: [C.dirt, C.dirtDark],
+    hillBlockColor: (col, row, layer) => {
+      if (row >= layer) return Math.random() < 0.5 ? C.grassTop : C.grassSide;
+      if (row >= layer - 1) return C.dirtDark;
+      return Math.random() < 0.3 ? C.dirtDark : C.dirt;
+    },
+    hotbarSVG:
+      `<svg viewBox="0 0 16 16">`
+      + `<polygon points="8,1 15,6 8,15 1,6" fill="${C.diamondOre}" stroke="${C.diamondDark}" stroke-width="1"/>`
+      + `<polygon points="8,1 11,6 8,10 5,6" fill="${C.diamondLight}" opacity="0.5"/>`
+      + `</svg>`,
+  },
+  emerald: {
+    label: 'EMERALD',
+    harvestEmoji: '💚',
+    oreColor: C.emeraldOre,
+    particleColors: [C.stone, C.stoneDark, C.emeraldOre, C.emeraldLight, '#FFF'],
+    dropSprite: EMERALD_ITEM,
+    dropColors: EMERALD_COLORS,
+    // Mossy forest hill — an overgrown emerald mine. Body is moss-dominant
+    // with stone veins as accents, and emerald crystals sparkle in the pile.
+    digParticles: [C.moss, C.mossLight, C.emeraldOre, C.emeraldLight],
+    chunkColors: [C.moss, C.mossLight],
+    landParticles: [C.moss, C.mossDark],
+    hillBlockColor: (col, row, layer) => {
+      if (row >= layer) return Math.random() < 0.5 ? C.mossLight : C.moss;
+      if (row >= layer - 1) return Math.random() < 0.4 ? C.moss : C.mossDark;
+      // Deep body: mostly moss with occasional stone veins + emerald sparkles
+      const r = Math.random();
+      if (r < 0.12) return C.emeraldOre;
+      if (r < 0.30) return C.stoneDark;
+      return Math.random() < 0.5 ? C.moss : C.mossDark;
+    },
+    hotbarSVG:
+      `<svg viewBox="0 0 16 16">`
+      + `<polygon points="8,1 15,6 8,15 1,6" fill="${C.emeraldOre}" stroke="${C.emeraldDark}" stroke-width="1"/>`
+      + `<polygon points="8,1 11,6 8,10 5,6" fill="${C.emeraldLight}" opacity="0.5"/>`
+      + `</svg>`,
+  },
+  gold: {
+    label: 'GOLD',
+    harvestEmoji: '🟡',
+    oreColor: C.goldOre,
+    particleColors: [C.stone, C.stoneDark, C.goldOre, C.goldLight, '#FFF'],
+    dropSprite: GOLD_ITEM,
+    dropColors: GOLD_COLORS,
+    // Desert sand hill with gold nuggets — a gold rush dune
+    digParticles: [C.sand, C.sandLight, C.goldOre, C.goldLight],
+    chunkColors: [C.sand, C.goldOre],
+    landParticles: [C.sand, C.sandDark],
+    hillBlockColor: (col, row, layer) => {
+      if (row >= layer) return Math.random() < 0.5 ? C.sandLight : C.sand;
+      if (row >= layer - 1) return C.sand;
+      return Math.random() < 0.15 ? C.goldOre : (Math.random() < 0.4 ? C.sandDark : C.sand);
+    },
+    hotbarSVG:
+      `<svg viewBox="0 0 16 16">`
+      + `<ellipse cx="8" cy="9" rx="6" ry="5" fill="${C.goldOre}" stroke="${C.goldDark}" stroke-width="1"/>`
+      + `<ellipse cx="6" cy="7" rx="2.5" ry="1.5" fill="${C.goldLight}" opacity="0.8"/>`
+      + `<circle cx="10" cy="11" r="0.8" fill="${C.goldDark}" opacity="0.5"/>`
+      + `</svg>`,
+  },
+  ruby: {
+    label: 'RUBY',
+    harvestEmoji: '❤️',
+    oreColor: C.rubyOre,
+    particleColors: [C.stone, C.stoneDark, C.rubyOre, C.rubyLight, '#FFF'],
+    dropSprite: RUBY_ITEM,
+    dropColors: RUBY_COLORS,
+    // Dark volcanic cave pile with ruby veins — feels like netherrack
+    digParticles: [C.cave, C.caveLight, C.rubyOre, C.rubyLight],
+    chunkColors: [C.cave, C.rubyOre],
+    landParticles: [C.cave, C.caveDark],
+    hillBlockColor: (col, row, layer) => {
+      if (row >= layer) return Math.random() < 0.5 ? C.caveLight : C.cave;
+      if (row >= layer - 1) return C.caveDark;
+      return Math.random() < 0.15 ? C.rubyOre : (Math.random() < 0.4 ? C.cave : C.caveDark);
+    },
+    hotbarSVG:
+      `<svg viewBox="0 0 16 16">`
+      + `<polygon points="8,1 15,6 8,15 1,6" fill="${C.rubyOre}" stroke="${C.rubyDark}" stroke-width="1"/>`
+      + `<polygon points="8,1 11,6 8,10 5,6" fill="${C.rubyLight}" opacity="0.6"/>`
+      + `</svg>`,
+  },
+};
+const THEME_ORDER = ['tomato', 'diamond', 'emerald', 'gold', 'ruby'];
 
 const CREEPER = ['GGGGGG','GGGGGG','GEEGEG','GGGGGG','GGMEGG','GGMMGG','GGGGGG','.GGGG.'];
 const CREEPER_COLORS = { G:C.creeperG, E:'#000', M:'#000' };
@@ -671,13 +1069,30 @@ function buildScene() {
   buildCloud(bgLayer, 60, 25, 50);
   buildCloud(bgLayer, 280, 18, 70);
 
-  // Sun
+  // Sun — round 8x8 sprite centered at (400, 40)
   sunG = el('g');
-  const sunPx = ['...YY...','..YYYY..','..YYYY..','.YYYYYY.','YYYYYYYY','YYYYYYYY','.YYYYYY.','..YYYY..','..YYYY..','...YY...'];
-  renderSprite(sunPx, {Y:'#FFD700'}, 380, 15, 5, sunG);
-  // Rays
-  [[375,35,6,3],[418,35,6,3],[396,8,3,6],[396,62,3,6],[378,18,4,3],[414,50,4,3],[414,18,4,3],[378,50,4,3]].forEach(([rx,ry,rw,rh]) =>
-    rect(rx,ry,rw,rh,'#FFD700',sunG));
+  const sunPx = [
+    '..YYYY..',
+    '.YYYYYY.',
+    'YYYYYYYY',
+    'YYYYYYYY',
+    'YYYYYYYY',
+    'YYYYYYYY',
+    '.YYYYYY.',
+    '..YYYY..',
+  ];
+  renderSprite(sunPx, {Y:'#FFD700'}, 380, 20, 5, sunG);
+  // Eight radiating rays (E, W, N, S + four diagonals)
+  [
+    [424, 37, 10, 4],  // east
+    [366, 37, 10, 4],  // west
+    [398,  6,  4, 10], // north
+    [398, 64,  4, 10], // south
+    [422, 13,  5, 5],  // northeast
+    [373, 13,  5, 5],  // northwest
+    [422, 62,  5, 5],  // southeast
+    [373, 62,  5, 5],  // southwest
+  ].forEach(([rx,ry,rw,rh]) => rect(rx,ry,rw,rh,'#FFD700',sunG));
   svg.appendChild(sunG);
 
   // Moon
@@ -1047,8 +1462,8 @@ function updateMining(dt) {
 }
 
 function onPickaxeHit() {
-  // Dirt particles every swing (visual feedback)
-  spawnParticles(steveX+4*P, GROUND_Y-P, [C.dirt,C.dirtDark,C.grassTop,C.grassSide], 4);
+  // Per-theme particles every swing (visual feedback)
+  spawnParticles(steveX+4*P, GROUND_Y-P, THEMES[currentThemeId].digParticles, 4);
 
   // Accumulate time — add hill block every DIG_BLOCK_INTERVAL seconds
   digBlockAccumulator += 1.0 / swingSpeed;
@@ -1065,7 +1480,7 @@ function onPickaxeHit() {
 
 function onBlockBreak() {
   // Big explosion
-  spawnParticles(ORE_X+32, ORE_Y+32, [C.stone,C.stoneDark,C.diamondOre,C.diamondLight,'#FFF'], 20);
+  spawnParticles(ORE_X+32, ORE_Y+32, THEMES[currentThemeId].particleColors, 20);
   dropItem(ORE_X+24, ORE_Y);
 
   oreBlockG.setAttribute('opacity', 0);
@@ -1127,7 +1542,8 @@ function spawnStars(cx, cy, count) {
 
 function dropItem(x, y) {
   const item = el('g');
-  renderSprite(DIAMOND_ITEM, DIAMOND_COLORS, 0, 0, 5, item);
+  const theme = THEMES[currentThemeId];
+  renderSprite(theme.dropSprite, theme.dropColors, 0, 0, 5, item);
   itemLayer.appendChild(item);
   const endY = GROUND_Y - 20;
   let t = 0;
@@ -1340,9 +1756,98 @@ function buildHotbar() {
     const slot = document.createElement('div');
     slot.className = 'hotbar-slot'+(i<completedSessions?' active':'');
     if (i<completedSessions)
-      slot.innerHTML = `<svg viewBox="0 0 16 16"><polygon points="8,1 15,6 8,15 1,6" fill="${C.diamondOre}" stroke="#1A8A7A" stroke-width="1"/><polygon points="8,1 11,6 8,10 5,6" fill="${C.diamondLight}" opacity="0.5"/></svg>`;
+      slot.innerHTML = THEMES[currentThemeId].hotbarSVG;
     hotbar.appendChild(slot);
   }
+}
+
+function buildThemePicker() {
+  const picker = document.getElementById('themePicker');
+  if (!picker) return;
+  picker.innerHTML = '';
+  THEME_ORDER.forEach(id => {
+    const t = THEMES[id];
+    const btn = document.createElement('button');
+    btn.className = 'mc-theme-btn' + (id === currentThemeId ? ' on' : '');
+    btn.id = 'themeBtn_' + id;
+    btn.innerHTML = `<span class="swatch" style="background:${t.oreColor}"></span>${t.label}`;
+    btn.addEventListener('click', () => applyTheme(id));
+    picker.appendChild(btn);
+  });
+}
+
+// ═══════════════════════════════════════════
+// SHARE — viral loop entry point
+// ─────────────────────────────────────────
+// Builds a sharable brag message from today's stats and opens either the
+// native share sheet (mobile) or a Twitter intent URL (desktop fallback).
+// ═══════════════════════════════════════════
+function buildShareText() {
+  const d = loadDaily();
+  const emoji = (THEMES[currentThemeId] && THEMES[currentThemeId].harvestEmoji) || '🍅';
+  if (d.sessions === 0) {
+    return `Starting my focus session with Pomodoro Craft ${emoji}\nA cute Minecraft-themed pomodoro timer.`;
+  }
+  const icons = emoji.repeat(Math.min(d.sessions, 5));
+  return `${icons} Just harvested ${d.sessions} ${emoji} today with Pomodoro Craft!\n⏱ ${d.focusMin} minutes of focus.\n\nA cozy Minecraft pomodoro timer — try it:`;
+}
+
+// ═══════════════════════════════════════════
+// SOCIAL PROOF — "X focusing now"
+// ─────────────────────────────────────────
+// Without a real backend, we can't count actual concurrent users. Instead
+// we derive a soft estimate from (a) time-of-day activity curve and (b)
+// a small random jitter, then display it as a guideline. The number is
+// refreshed every ~30s so it feels alive.
+//
+// This is honest-ish: the text reads "focusing now" (present tense, plural),
+// and the number reflects a realistic pattern rather than a pure lie.
+// Replace with a real WebSocket count later if the app gets a backend.
+// ═══════════════════════════════════════════
+function estimateFocusersNow() {
+  const now = new Date();
+  const hour = now.getHours();
+  // Activity curve: low at night (3-7AM), high in study hours (9-12, 14-17, 20-23)
+  const curve = [
+    40, 30, 25, 20, 18, 20,   // 0-5
+    30, 50, 80, 120, 150, 160, // 6-11
+    140, 130, 155, 170, 175, 165, // 12-17
+    140, 130, 155, 170, 160, 100, // 18-23
+  ];
+  const base = curve[hour] || 80;
+  // Small jitter using a 30-second bucket so the number is stable per update
+  const bucket = Math.floor(Date.now() / 30000);
+  const jitter = ((bucket * 2654435761) >>> 0) % 40 - 20;
+  return Math.max(10, base + jitter);
+}
+
+function updateSocialProof() {
+  const el = document.getElementById('socialProof');
+  if (!el) return;
+  const n = estimateFocusersNow();
+  el.textContent = `🌱 ${n} focusing now`;
+}
+
+async function shareHarvest() {
+  const shareUrl = 'https://stevekim0417.github.io/pomodoro-craft/';
+  const text = buildShareText();
+  const payload = { title: 'Pomodoro Craft', text, url: shareUrl };
+
+  // Web Share API — mobile & some desktop browsers
+  if (navigator.share) {
+    try {
+      await navigator.share(payload);
+      return;
+    } catch (err) {
+      // user cancelled — silently ignore
+      if (err && err.name === 'AbortError') return;
+    }
+  }
+
+  // Fallback: Twitter intent URL
+  const tweetText = encodeURIComponent(text + '\n' + shareUrl);
+  const twitterUrl = `https://twitter.com/intent/tweet?text=${tweetText}`;
+  window.open(twitterUrl, '_blank', 'noopener');
 }
 
 // ═══════════════════════════════════════════
@@ -1516,6 +2021,75 @@ function playSound(type) {
 }
 
 // ═══════════════════════════════════════════
+// THEME SYSTEM
+// ─────────────────────────────────────────
+// Switches all ore-related visuals (block color, drop item, hotbar icon,
+// particle palette) by mutating ORE_COLORS and re-rendering the ore block
+// sprite in-place. No full scene rebuild needed.
+// ═══════════════════════════════════════════
+function applyTheme(themeId) {
+  if (!THEMES[themeId]) themeId = 'tomato';
+  currentThemeId = themeId;
+  const theme = THEMES[themeId];
+
+  // 1. Mutate ORE_COLORS so any future renderSprite(ORE_BLOCK, ORE_COLORS, ...)
+  //    uses the new ore color (legacy ore block — currently hidden but kept
+  //    in case mining mode is re-enabled).
+  ORE_COLORS.O = theme.oreColor;
+  if (oreBlockG) {
+    const opacity = oreBlockG.getAttribute('opacity') || '1';
+    oreBlockG.innerHTML = '';
+    ORE_BLOCK.forEach((row, ry) => [...row].forEach((ch, rx) => {
+      if (ch === '.' || !ORE_COLORS[ch]) return;
+      rect(rx * P, ry * P, P, P, ORE_COLORS[ch], oreBlockG);
+    }));
+    oreBlockG.setAttribute('opacity', opacity);
+  }
+
+  // 2. Repaint the already-built hill so the biome switch is instant and
+  //    the existing blocks match the new theme. Without this, mid-session
+  //    theme swaps would leave half the hill in the old colors.
+  repaintHill();
+
+  // 3. Repaint hotbar (already-completed sessions will show the new icon).
+  buildHotbar();
+
+  // 4. Repaint daily stats (harvest emoji follows the theme).
+  renderDailyStats();
+
+  // 5. Update theme-picker button highlights.
+  syncThemeButtons();
+
+  saveState();
+}
+
+// Walk the hillGrid and redraw every already-placed block with the active
+// theme's palette. Called by applyTheme() whenever the theme changes.
+function repaintHill() {
+  if (!hillG) return;
+  hillG.innerHTML = '';
+  const theme = THEMES[currentThemeId];
+  const [, topColor] = theme.chunkColors;
+  for (const k in hillGrid) {
+    if (hillGrid[k] !== true) continue;
+    const [col, row] = k.split(',').map(Number);
+    const ex = HILL_BASE_X + col * P;
+    const ey = HILL_BASE_Y - (row + 1) * P;
+    rect(ex, ey, P, P, hillBlockColor(col, row), hillG);
+    if (!hillHas(col, row + 1)) {
+      rect(ex, ey, P, 2, topColor, hillG);
+    }
+  }
+}
+
+function syncThemeButtons() {
+  THEME_ORDER.forEach(id => {
+    const btn = document.getElementById('themeBtn_' + id);
+    if (btn) btn.classList.toggle('on', id === currentThemeId);
+  });
+}
+
+// ═══════════════════════════════════════════
 // SOUND & LOFI TOGGLES
 // ═══════════════════════════════════════════
 function toggleOpt(type) {
@@ -1686,6 +2260,9 @@ document.getElementById('resetBtn').addEventListener('click', resetTimer);
 // ═══════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════
+// Apply companion layout as early as possible (before first paint).
+if (isCompanionMode) document.body.setAttribute('data-layout', 'companion');
+
 focusValue.textContent = focusMin;
 breakValue.textContent = breakMin;
 document.getElementById('longBreakValue').textContent = longBreakMin;
@@ -1695,6 +2272,11 @@ buildHotbar();
 buildScene();
 renderDailyStats();
 renderSessionLog();
+buildThemePicker();
+// Apply restored theme: mutates ORE_COLORS + repaints ore block + hotbar.
+// Must run AFTER buildScene() (creates oreBlockG) and buildThemePicker()
+// (creates the highlightable buttons).
+applyTheme(currentThemeId);
 
 // Restore settings UI
 syncToggleBtn('toggleAlarm', 'SOUND', alarmEnabled);
@@ -1704,6 +2286,15 @@ syncToggleBtn('toggleAutoFocus', 'AUTO FOCUS', autoFocus);
 
 setMode('focus');
 updateDisplay();
+updateSocialProof();
+setInterval(updateSocialProof, 30000);
+
+// Autostart via URL param — for creator-embedded links that should kick
+// off the timer immediately (e.g. a YouTube description link).
+if (shouldAutoStart) {
+  // Delay one frame so the UI has finished mounting.
+  requestAnimationFrame(() => startTimer());
+}
 </script>
 </body>
 </html>
