@@ -1102,6 +1102,9 @@ function hillBlockColor(col, row) {
 }
 
 function addHillBlock() {
+  // Legacy hill state machine — still runs so timing, counters, and
+  // session stats remain intact. We consume one slot and discard it
+  // (hillG is hidden; the real output is a contribution pixel).
   if (hillLayerQueue.length === 0) {
     hillLayerQueue = hillGenPositions();
     if (hillLayerQueue.length === 0) {
@@ -1109,19 +1112,17 @@ function addHillBlock() {
       hillLayerQueue = hillGenPositions();
     }
   }
-  if (hillLayerQueue.length === 0) return;
+  if (hillLayerQueue.length > 0) hillLayerQueue.shift();
 
-  const [col, row] = hillLayerQueue.shift();
-
-  // Redirect the dirt arc at the central MOUNTAIN base so each swing
-  // visually "contributes" a chunk to the collective mountain instead
-  // of stacking a separate personal pile. The final rect still lands
-  // inside hillG which is now hidden (opacity 0) — the state machine
-  // remains intact so timing / block counting still works, but the
-  // blocks never paint over the mountain.
-  const targetX = MOUNTAIN_CENTER_X + (Math.random() - 0.5) * 180;
-  const targetY = MOUNTAIN_BASE_Y - 10 - Math.random() * 20;
-  flingDirt(steveX + 5*P, GROUND_Y - 6*P, targetX, targetY, col, row);
+  // Visible feedback: fling a tiny chunk in the user's hat color
+  // from Steve's pickaxe to a random spot on the central mountain.
+  // The chunk LANDS as a permanent pixel that decorates the mountain
+  // in a mosaic of contribution colors. Note: we do NOT bump
+  // myMountainContribution here — that counter tracks authoritative
+  // mountain blocks (1 + floor(min/10) per session), while these
+  // dig pixels are sub-block cosmetic confetti.
+  const myColor = colorForNick(currentNick);
+  flingContributionPixel(steveX + 5 * P, GROUND_Y - 6 * P, myColor);
 }
 
 function flingDirt(sx, sy, ex, ey, col, row) {
@@ -1422,6 +1423,29 @@ let mountainG = null;
 let contribFxG = null;
 let skyG = null;
 
+// ═══════════════════════════════════════════
+// CONTRIBUTION PIXELS — the collective mosaic
+// ─────────────────────────────────────────
+// The core feedback loop: every single dig Steve makes (every 2s
+// while focusing) leaves a permanent small pixel on the central
+// mountain in the user's personal hat color. Remote users' completed
+// sessions drop a burst of pixels in their color. Over time the
+// mountain fills up with a mosaic of colors — evidence of everyone's
+// collective focus. A single person's contribution is visible but
+// modest; many people collaborating fills the mountain rapidly.
+//
+// State invariants:
+//   - contributionPixels[]  → tail = most recent, capped at MAX
+//   - Each entry: { x, y, color, el }  (el is the SVG <rect>)
+//   - The group (contributionPixelsG) sits ABOVE mountainG but BELOW
+//     the front ground strip and characters, so pixels stick on the
+//     mountain surface without covering people.
+// ═══════════════════════════════════════════
+let contributionPixelsG = null;
+const contributionPixels = [];
+const CONTRIBUTION_PIXEL_MAX = 1500;
+const CONTRIBUTION_PIXEL_SIZE = 4;
+
 function buildScene() {
   svg.innerHTML = '';
 
@@ -1530,6 +1554,18 @@ function buildScene() {
   //        Rests on top of the grass field.
   mountainG = el('g');
   svg.appendChild(mountainG);
+
+  // ── 7.5. Contribution pixels — the collective mosaic on top of
+  //         the mountain. Every dig (local) and every remote session
+  //         drops a persistent colored pixel here. Drawn ABOVE the
+  //         mountain so pixels decorate the surface, and rebuilt
+  //         from `contributionPixels[]` on scene rebuild.
+  contributionPixelsG = el('g');
+  svg.appendChild(contributionPixelsG);
+  // Replay any already-collected pixels after a scene rebuild
+  for (const p of contributionPixels) {
+    p.el = rect(p.x, p.y, CONTRIBUTION_PIXEL_SIZE, CONTRIBUTION_PIXEL_SIZE, p.color, contributionPixelsG);
+  }
 
   // ── 8. Front grass strip under the main area — grass top + dirt.
   //        Drawn BEFORE remote users so characters rendered in the
@@ -1983,6 +2019,147 @@ function renderMountainBadge() {
     el.innerHTML = `🏔️ <b>${total}</b> blocks · ${layers} layers · <span class="my-contrib">+${mine} from you</span>`;
   } else {
     el.innerHTML = `🏔️ <b>${total}</b> blocks · ${layers} layers · focus to contribute`;
+  }
+}
+
+// ═══════════════════════════════════════════
+// CONTRIBUTION PIXEL HELPERS
+// ─────────────────────────────────────────
+// pickMountainSpot() — samples a random (x,y) inside a random layer
+// of the current mountain. The returned coordinates are already
+// snapped to a 2px grid for a crisp pixel-art feel, and padded away
+// from the layer edges so placed pixels don't fight the mountain's
+// highlight/shadow bands.
+//
+// colorForNick(nick) — returns the hat's main color for the nick.
+//
+// addContributionPixel(color, opts) — persists a permanent pixel on
+// the mountain in the contributionPixelsG layer AND records it in
+// the contributionPixels array so it survives scene rebuilds and
+// gets re-emitted via the group replay loop. Oldest entries are
+// evicted past CONTRIBUTION_PIXEL_MAX. Returns the chosen spot, or
+// null if the mountain isn't built yet.
+//
+// flingContributionPixel(srcX, srcY, color) — mines chunk-style arc
+// from Steve's pickaxe to a mountain spot, then lands as a permanent
+// pixel with a small pop animation. Used by the local dig loop so
+// every swing feels like "I'm adding to the mountain right now."
+// ═══════════════════════════════════════════
+function pickMountainSpot() {
+  if (!contributionPixelsG) return null;
+  const layers = computeMountainLayers(globalMountainBlocks);
+  if (layers <= 0) return null;
+  // Weight lower layers slightly more (wider, more surface area)
+  const layerRoll = Math.random();
+  const i = Math.floor(Math.pow(layerRoll, 1.6) * layers);
+  const baseBlocks = layers * 2 + 3;
+  const blocksThisLayer = baseBlocks - i * 2;
+  if (blocksThisLayer <= 0) return null;
+  const layerW = blocksThisLayer * MOUNTAIN_BLOCK_W;
+  const layerX = MOUNTAIN_CENTER_X - layerW / 2;
+  const layerY = MOUNTAIN_BASE_Y - (i + 1) * MOUNTAIN_LAYER_H;
+  // Pad away from the 6px highlight (left) and shade (right) bands
+  // as well as the 2px top-edge highlight.
+  const padLeft = 8, padRight = 8, padTop = 3, padBottom = 3;
+  const availW = layerW - padLeft - padRight - CONTRIBUTION_PIXEL_SIZE;
+  const availH = MOUNTAIN_LAYER_H - padTop - padBottom - CONTRIBUTION_PIXEL_SIZE;
+  if (availW <= 0 || availH <= 0) return null;
+  const rawX = layerX + padLeft + Math.random() * availW;
+  const rawY = layerY + padTop + Math.random() * availH;
+  // Snap to 2px grid for crispness
+  const x = Math.round(rawX / 2) * 2;
+  const y = Math.round(rawY / 2) * 2;
+  return { x, y, layer: i };
+}
+
+function colorForNick(nick) {
+  const hat = HAT_PALETTE[hatIndexForNick(nick)] || HAT_PALETTE[0];
+  return hat.J;
+}
+
+function addContributionPixel(color, spot) {
+  if (!contributionPixelsG) return null;
+  const s = spot || pickMountainSpot();
+  if (!s) return null;
+  const r = rect(s.x, s.y, CONTRIBUTION_PIXEL_SIZE, CONTRIBUTION_PIXEL_SIZE, color, contributionPixelsG);
+  // Pop-in animation — scale from tiny to oversized to final for
+  // a satisfying "plink!" feel.
+  r.style.transformOrigin = `${s.x + CONTRIBUTION_PIXEL_SIZE / 2}px ${s.y + CONTRIBUTION_PIXEL_SIZE / 2}px`;
+  r.animate([
+    { transform: 'scale(0)',   opacity: 0 },
+    { transform: 'scale(2.2)', opacity: 1, offset: 0.45 },
+    { transform: 'scale(1)',   opacity: 1 },
+  ], { duration: 260, easing: 'ease-out' });
+  // Subtle white edge that fades away — makes each new pixel "ping"
+  const glow = rect(s.x - 1, s.y - 1, CONTRIBUTION_PIXEL_SIZE + 2, CONTRIBUTION_PIXEL_SIZE + 2, '#FFFFFF', contributionPixelsG);
+  glow.setAttribute('opacity', '0.8');
+  glow.animate([
+    { opacity: 0.8 },
+    { opacity: 0 },
+  ], { duration: 360, easing: 'ease-out', fill: 'forwards' });
+  setTimeout(() => glow.remove(), 380);
+  // Track in state (evict oldest if capped)
+  const entry = { x: s.x, y: s.y, color, el: r };
+  contributionPixels.push(entry);
+  if (contributionPixels.length > CONTRIBUTION_PIXEL_MAX) {
+    const old = contributionPixels.shift();
+    if (old.el && old.el.parentNode) old.el.parentNode.removeChild(old.el);
+  }
+  return s;
+}
+
+function flingContributionPixel(srcX, srcY, color) {
+  if (!contributionPixelsG) return;
+  const spot = pickMountainSpot();
+  if (!spot) return;
+  // A temporary flying chunk (group so we can animate transform)
+  const chunk = el('g');
+  rect(0, 0, CONTRIBUTION_PIXEL_SIZE, CONTRIBUTION_PIXEL_SIZE, color, chunk);
+  // White top-edge highlight so the chunk reads in the air
+  rect(0, 0, CONTRIBUTION_PIXEL_SIZE, 1, '#FFFFFF', chunk);
+  svg.appendChild(chunk);
+  const targetX = spot.x;
+  const targetY = spot.y;
+  const mx = (srcX + targetX) / 2;
+  const my = Math.min(srcY, targetY) - 70 - Math.random() * 30;
+  const dur = 480 + Math.random() * 140;
+  chunk.animate([
+    { transform: `translate(${srcX}px, ${srcY}px) scale(1)   rotate(0deg)`,   opacity: 1 },
+    { transform: `translate(${mx}px,  ${my}px)  scale(1.35) rotate(180deg)`, opacity: 1, offset: 0.5 },
+    { transform: `translate(${targetX}px, ${targetY}px) scale(1) rotate(360deg)`, opacity: 1 },
+  ], { duration: dur, easing: 'ease-in', fill: 'forwards' });
+  setTimeout(() => {
+    chunk.remove();
+    addContributionPixel(color, spot);
+  }, dur);
+}
+
+// Staggered burst of pixels for a remote user's completed session.
+// Clamps the burst size so a huge session doesn't flood the scene.
+function addRemoteContributionBurst(nick, count) {
+  if (!contributionPixelsG) return;
+  const color = colorForNick(nick);
+  const n = Math.max(1, Math.min(12, count || 1));
+  for (let i = 0; i < n; i++) {
+    setTimeout(() => addContributionPixel(color), i * 90);
+  }
+}
+
+// Seed the mountain with a sprinkle of pre-existing contribution
+// pixels on first load, so the scene looks like the collective has
+// already been building. Colors are sampled randomly from the hat
+// palette to imply "many different people contributed." These are
+// regular entries in contributionPixels[] and obey the same cap.
+function seedInitialContributionPixels(count) {
+  if (!contributionPixelsG) return;
+  if (contributionPixels.length > 0) return;  // already seeded
+  const seedN = Math.max(0, Math.min(CONTRIBUTION_PIXEL_MAX, count | 0));
+  for (let i = 0; i < seedN; i++) {
+    const hat = HAT_PALETTE[Math.floor(Math.random() * HAT_PALETTE.length)];
+    const spot = pickMountainSpot();
+    if (!spot) break;
+    const r = rect(spot.x, spot.y, CONTRIBUTION_PIXEL_SIZE, CONTRIBUTION_PIXEL_SIZE, hat.J, contributionPixelsG);
+    contributionPixels.push({ x: spot.x, y: spot.y, color: hat.J, el: r });
   }
 }
 
@@ -2850,6 +3027,10 @@ function connectPresence() {
             // contributing user's slot (if we can find it).
             if (msg.session && delta > 0) {
               flyContributionBlock(msg.session);
+              // Burst of contribution pixels — one per earned block —
+              // in the contributing user's color, so their handprint
+              // shows up on the mountain mosaic.
+              addRemoteContributionBurst(msg.session.nick, delta);
             }
           }
           renderLiveFeed();
@@ -4032,6 +4213,11 @@ buildScene();
 // when we have no live users yet, so the scene never looks broken.
 renderRemoteUsers();
 renderMountainBadge();
+// Seed a sprinkle of pre-existing contribution pixels so new visitors
+// land on a mountain that already looks lived-in. These are purely
+// cosmetic — real contributions still fling in from Steve's digs and
+// remote session bursts.
+seedInitialContributionPixels(250);
 renderDailyStats();
 renderSessionLog();
 buildThemePicker();
