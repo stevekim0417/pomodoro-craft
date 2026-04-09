@@ -1112,11 +1112,16 @@ function addHillBlock() {
   if (hillLayerQueue.length === 0) return;
 
   const [col, row] = hillLayerQueue.shift();
-  const bx = HILL_BASE_X + col * P;
-  const by = HILL_BASE_Y - (row + 1) * P;
 
-  // Fling dirt from Steve to hill target
-  flingDirt(steveX + 5*P, GROUND_Y - 6*P, bx, by, col, row);
+  // Redirect the dirt arc at the central MOUNTAIN base so each swing
+  // visually "contributes" a chunk to the collective mountain instead
+  // of stacking a separate personal pile. The final rect still lands
+  // inside hillG which is now hidden (opacity 0) — the state machine
+  // remains intact so timing / block counting still works, but the
+  // blocks never paint over the mountain.
+  const targetX = MOUNTAIN_CENTER_X + (Math.random() - 0.5) * 180;
+  const targetY = MOUNTAIN_BASE_Y - 10 - Math.random() * 20;
+  flingDirt(steveX + 5*P, GROUND_Y - 6*P, targetX, targetY, col, row);
 }
 
 function flingDirt(sx, sy, ex, ey, col, row) {
@@ -1548,12 +1553,6 @@ function buildScene() {
   remoteUsersG = el('g');
   svg.appendChild(remoteUsersG);
 
-  // ── 9. Main Steve trees (close to main Steve, on either side) ──
-  const mainTreesG = el('g');
-  buildTree(mainTreesG, 240);
-  buildTree(mainTreesG, 540);
-  svg.appendChild(mainTreesG);
-
   // ── 10. Focus layer (legacy — ore block hidden, only kept for
   //        crack overlay compatibility with updateMining fallback path) ──
   focusLayerG = el('g');
@@ -1565,9 +1564,11 @@ function buildScene() {
   blockShakeG.appendChild(crackOverlayG);
   focusLayerG.appendChild(blockShakeG);
 
-  // Hill layer (legacy — now repurposed for small visual flourishes
-  // but does NOT hold the main mountain, which is mountainG instead).
-  hillG = el('g');
+  // Hill layer — legacy personal-pile system. The blocks still
+  // accumulate internally (the state machine is used to schedule
+  // dirt-fling animations), but the group itself is hidden. The
+  // central mountain is now the authoritative "stack" visualization.
+  hillG = el('g', { opacity: 0 });
   focusLayerG.appendChild(hillG);
 
   // ── 11. Creeper (random appearance during focus) ──
