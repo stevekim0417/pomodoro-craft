@@ -659,30 +659,32 @@ body[data-layout="companion"] .session-indicator { font-size: 9px; }
         <div class="share-wrap">
           <button class="mc-toggle share-btn" id="shareBtn" onclick="shareHarvest()">📣 SHARE TODAY'S HARVEST</button>
         </div>
-      </div>
-      <div class="log-toggle" id="logToggle" onclick="toggleSessionLog()">SESSION LOG ▼</div>
-      <div class="session-log" id="sessionLog">
-        <div class="session-log-inner" id="sessionLogInner"></div>
-      </div>
 
-      <!-- Settings Drawer -->
-      <div class="settings-drawer-tab" id="settingsTab" onclick="toggleSettingsDrawer()">
-        SETTINGS <span class="arrow">▼</span>
-      </div>
-      <div class="settings-drawer" id="settingsDrawer">
-        <div class="drawer-toggles">
-          <button class="mc-toggle on" id="toggleAlarm" onclick="toggleOpt('alarm')">SOUND ON</button>
-          <button class="mc-toggle" id="toggleAutoBreak" onclick="toggleOpt('autoBreak')">AUTO BREAK OFF</button>
-          <button class="mc-toggle" id="toggleAutoFocus" onclick="toggleOpt('autoFocus')">AUTO FOCUS OFF</button>
-          <button class="mc-toggle" id="toggleLofi" onclick="toggleOpt('lofi')">LOFI BREAK OFF</button>
+        <!-- Session log — moved in from its own collapsible. Always
+             expanded when the parent details panel is open. -->
+        <div class="drawer-section-label">SESSION LOG</div>
+        <div class="session-log open" id="sessionLog">
+          <div class="session-log-inner" id="sessionLogInner"></div>
         </div>
-        <div class="drawer-section-label">ORE THEME</div>
-        <div class="drawer-theme-picker" id="themePicker"></div>
-        <div class="drawer-section-label">YOUR NAME (visible to others)</div>
-        <div class="drawer-nick-wrap">
-          <input type="text" id="nickInput" class="drawer-nick-input" maxlength="20"
-                 placeholder="guest_xxxx" autocomplete="off">
-          <span class="drawer-nick-hint" id="nickHint"></span>
+
+        <!-- Settings — moved in from the separate drawer. All toggle
+             buttons, theme picker, and name editor live here now. -->
+        <div class="drawer-section-label">SETTINGS</div>
+        <div class="settings-drawer open" id="settingsDrawer">
+          <div class="drawer-toggles">
+            <button class="mc-toggle on" id="toggleAlarm" onclick="toggleOpt('alarm')">SOUND ON</button>
+            <button class="mc-toggle" id="toggleAutoBreak" onclick="toggleOpt('autoBreak')">AUTO BREAK OFF</button>
+            <button class="mc-toggle" id="toggleAutoFocus" onclick="toggleOpt('autoFocus')">AUTO FOCUS OFF</button>
+            <button class="mc-toggle" id="toggleLofi" onclick="toggleOpt('lofi')">LOFI BREAK OFF</button>
+          </div>
+          <div class="drawer-section-label">ORE THEME</div>
+          <div class="drawer-theme-picker" id="themePicker"></div>
+          <div class="drawer-section-label">YOUR NAME (visible to others)</div>
+          <div class="drawer-nick-wrap">
+            <input type="text" id="nickInput" class="drawer-nick-input" maxlength="20"
+                   placeholder="guest_xxxx" autocomplete="off">
+            <span class="drawer-nick-hint" id="nickHint"></span>
+          </div>
         </div>
       </div>
     </div>
