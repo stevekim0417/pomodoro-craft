@@ -89,9 +89,9 @@ body {
 .container { background: var(--ui-bg); border: 4px solid; border-color: var(--ui-light) var(--ui-dark) var(--ui-dark) var(--ui-light); padding: 8px; }
 .inner { background: var(--ui-inner); border: 3px solid; border-color: #555 #AAA #AAA #555; padding: 12px; }
 .scene-wrap {
-  position: relative; width: 100%; aspect-ratio: 3/1; margin-bottom: 12px; overflow: hidden;
+  position: relative; width: 100%; aspect-ratio: 4/3; margin-bottom: 12px; overflow: hidden;
   border: 3px solid; border-color: #555 #AAA #AAA #555;
-  background: linear-gradient(180deg, var(--sky-top) 0%, var(--sky-bottom) 73%, #5B8731 73.1%, #5B8731 75%, #866043 75.1%, #866043 100%);
+  background: linear-gradient(180deg, var(--sky-top) 0%, var(--sky-bottom) 60%, #6B8E3A 60.1%, #5B8731 62%, #866043 62.1%, #866043 100%);
   transition: background var(--transition-speed);
 }
 .scene-wrap svg { width: 100%; height: 100%; display: block; }
@@ -255,6 +255,22 @@ body {
 }
 [data-mode="break"] .social-proof { color: #88BBFF; }
 .social-proof.live { color: #FFD700; } /* gold-tint when real data is flowing */
+
+/* Collective Mountain status badge — sits below social-proof */
+.mountain-badge {
+  text-align: center;
+  font-family: 'Press Start 2P', monospace; font-size: 7px;
+  color: #E8D080;
+  text-shadow: 1px 1px 0 #000;
+  letter-spacing: 1px;
+  padding: 4px 0 2px;
+  background: rgba(0, 0, 0, 0.2);
+  border-top: 1px dashed rgba(255, 255, 255, 0.2);
+  border-bottom: 1px dashed rgba(255, 255, 255, 0.2);
+  margin: 4px 0;
+}
+.mountain-badge b { color: #FFD700; }
+.mountain-badge .my-contrib { color: #8DB360; }
 .social-proof.alone {
   color: #FFA500;  /* warm "first mover" orange */
   animation: aloneGlow 3s infinite alternate;
@@ -450,6 +466,7 @@ body[data-layout="companion"] .footer-links,
 body[data-layout="companion"] .progress-bar,
 body[data-layout="companion"] .share-wrap,
 body[data-layout="companion"] .live-feed,
+body[data-layout="companion"] .mountain-badge,
 body[data-layout="companion"] .social-proof { display: none !important; }
 body[data-layout="companion"] .app { width: 100vw; max-width: 100vw; padding: 0; }
 body[data-layout="companion"] .container { border: 0; padding: 0; background: transparent; }
@@ -490,7 +507,7 @@ body[data-layout="companion"] .session-indicator { font-size: 9px; }
   <div class="container">
     <div class="inner">
       <div class="scene-wrap">
-        <svg id="scene" viewBox="0 0 1200 400" preserveAspectRatio="xMidYMid slice"></svg>
+        <svg id="scene" viewBox="0 0 800 600" preserveAspectRatio="xMidYMid slice"></svg>
       </div>
       <div class="timer-section">
         <div class="mode-label" id="modeLabel">FOCUS</div>
@@ -499,6 +516,7 @@ body[data-layout="companion"] .session-indicator { font-size: 9px; }
         <div class="progress-bar" id="progressBar"></div>
       </div>
       <div class="social-proof" id="socialProof">🌱 ··· focusing now</div>
+      <div class="mountain-badge" id="mountainBadge">🏔️ Building the mountain...</div>
       <div class="live-feed" id="liveFeed"></div>
       <div class="task-input-wrap">
         <input class="task-input" id="taskInput" placeholder="What are you working on?" maxlength="50">
@@ -583,14 +601,54 @@ body[data-layout="companion"] .session-indicator { font-size: 9px; }
 // CONSTANTS
 // ═══════════════════════════════════════════
 const P = 6;
-// Canvas expanded to "Horizontal Village" layout — 1200x400 viewBox.
-// 3:1 aspect ratio gives enough vertical room for the main Steve to
-// look meaningfully bigger than mini neighbors once rendered in the
-// ~520px-wide app container.
-// Main plot: x=480 to x=720 (240px wide)
-// Neighbor plots: 120px wide each, 4 per side
-// Ground extends across the full 1200px width
-const SVG_W = 1200, SVG_H = 400, GROUND_Y = 300;
+// ═══════════════════════════════════════════
+// "Collective Mountain Village" layout — 800x600 viewBox (4:3)
+// ─────────────────────────────────────────
+// Design philosophy (see CP-005):
+//   - Central shared mountain that grows with global focus time
+//   - Characters arranged in depth-sorted rows around the mountain base
+//   - Main Steve sits front-and-center at the largest scale
+//   - Neighbors fill the back row (smallest, behind the mountain edge),
+//     mid row (flanking the sides), and front row (close to viewer)
+//   - "Fake isometric" achieved via row-based scaling + shaded mountain
+//
+// Coordinate system:
+//   x=0..800     : left to right of the scene
+//   y=0..180     : sky zone (sun, clouds, mountain peak area)
+//   y=180..420   : mountain body (peak at ~180, base at ~420)
+//   y=380..540   : character zone (back row → front row)
+//   y=540..600   : front ground strip
+// ═══════════════════════════════════════════
+const SVG_W = 800, SVG_H = 600, GROUND_Y = 540;
+
+// ── Collective Mountain geometry ──
+const MOUNTAIN_CENTER_X = 400;    // horizontal center of the pyramid
+const MOUNTAIN_BASE_Y = 420;      // y of the mountain's base row
+const MOUNTAIN_LAYER_H = 16;      // px per vertical layer (block height)
+const MOUNTAIN_BLOCK_W = 20;      // px per horizontal block in a layer
+const MOUNTAIN_MAX_LAYERS = 15;   // visual cap; beyond this, layers compress
+
+// ── Character rows (front = larger, back = smaller) ──
+// Each row has fixed slot positions. When a user joins, they fill
+// the lowest-index empty slot, preferring back→mid→front so the main
+// stays front-center and new users populate the scene gradually.
+const CHAR_SLOTS = [
+  // Back row — 5 slots, small scale, behind mountain base line
+  { id: 'back-1',  x: 120, y: 390, scale: 3, row: 'back' },
+  { id: 'back-2',  x: 250, y: 400, scale: 3, row: 'back' },
+  { id: 'back-3',  x: 550, y: 400, scale: 3, row: 'back' },
+  { id: 'back-4',  x: 680, y: 390, scale: 3, row: 'back' },
+  // Mid row — 2 slots, medium scale, flanking the mountain sides
+  { id: 'mid-1',   x:  80, y: 470, scale: 4, row: 'mid' },
+  { id: 'mid-2',   x: 720, y: 470, scale: 4, row: 'mid' },
+  // Front row — 2 slots, larger scale, next to main
+  { id: 'front-1', x: 220, y: 520, scale: 5, row: 'front' },
+  { id: 'front-2', x: 580, y: 520, scale: 5, row: 'front' },
+  // (main Steve takes the center front spot, rendered separately)
+];
+// MAIN Steve position (center-front, largest)
+const MAIN_STEVE_X = 376;   // center 400 - body/2
+const MAIN_STEVE_BASE_Y = GROUND_Y;  // feet on the ground line
 const TOTAL_SESSIONS = 8, HITS_TO_BREAK = 4;
 const LONG_BREAK_INTERVAL = 4; // long break every N sessions
 
@@ -796,7 +854,21 @@ function recordSession(type, minutes) {
     updateLifetimeOnSession(minutes);
     // Fire-and-forget: push to multiplayer backend if configured.
     // This is what makes "other users see this session in their feed".
-    recordGlobalSession(minutes, currentThemeId, null);
+    recordGlobalSession(minutes, currentThemeId, currentNick);
+
+    // Add blocks to the mountain locally so the animation plays
+    // immediately, even without a backend. If the backend is connected,
+    // it'll sync the authoritative value shortly after.
+    const earned = 1 + Math.floor(minutes / 10);
+    globalMountainBlocks += earned;
+    myMountainContribution += earned;
+    renderMountain();
+    renderMountainBadge();
+    // Play the contribution animation from the main Steve's position
+    flyContributionBlock({
+      nick: currentNick,
+      theme: currentThemeId,
+    });
   }
 
   renderDailyStats();
@@ -1301,11 +1373,16 @@ let blinkTimer = 0, isBlinking = false;
 let jumpTimer = 0, isJumping = false, jumpVelocity = 0;
 let celebrateTimer = -1;
 
-// Main Steve lives in the central plot. Plot center x ≈ 600, so Steve
-// (8-col sprite) is anchored slightly left of center so its body is
-// centered. Ore block and hill sit to Steve's right within the plot.
-const STEVE_MINE_X = 596, STEVE_IDLE_X = 576, ORE_X = 672, ORE_Y = GROUND_Y - 8*P;
-const STEVE_DIG_X = 546, HILL_BASE_X = 680, HILL_BASE_Y = GROUND_Y;
+// Main Steve anchored at MAIN_STEVE_X (front-center of the scene).
+// The old per-user hill/ore has been removed — the collective mountain
+// is rendered independently by renderMountain(). These X values are
+// kept only for the dig/mine animation offsets of the main Steve.
+const STEVE_MINE_X = MAIN_STEVE_X + 20, STEVE_IDLE_X = MAIN_STEVE_X;
+const STEVE_DIG_X  = MAIN_STEVE_X - 30;
+// ORE_X/HILL_BASE_X kept for legacy updateMining code path (unused in
+// the active updateDigging path, but some functions still reference them).
+const ORE_X = MAIN_STEVE_X + 96, ORE_Y = GROUND_Y - 8*P;
+const HILL_BASE_X = MOUNTAIN_CENTER_X, HILL_BASE_Y = MOUNTAIN_BASE_Y;
 
 // Break state
 let chickenX = -40, chickenDir = 1, chickenVisible = false;
@@ -1316,32 +1393,50 @@ let stretchTimer = 0, isStretching = false;
 let sessionBlocksMined = 0;  // blocks mined in current focus session
 
 // ═══════════════════════════════════════════
-// BUILD SCENE — Horizontal Village layout
+// BUILD SCENE — Collective Mountain Village layout
 // ─────────────────────────────────────────
-// 9 plots total: 4 left neighbors + 1 main (larger) + 4 right neighbors
-// Main plot: x=480 to x=720 (240 wide)
-// Each neighbor plot: 120 wide
-// Ground runs continuously across all 1200 pixels
+// Rendering order (back to front):
+//   1. Sky gradient background (drawn via CSS of .scene-wrap)
+//   2. Sun / moon / clouds
+//   3. Distant mountains (atmosphere)
+//   4. Back-row characters (partially occluded by the central mountain)
+//   5. Central mountain (grows with global focus blocks)
+//   6. Mid-row characters
+//   7. Ground strip (front grass + dirt)
+//   8. Front-row characters (main Steve + 2 neighbors)
+//   9. Main Steve's break/focus overlays (pickaxe, campfire, etc.)
+//  10. Contribution animations layer (blocks flying to mountain)
 // ═══════════════════════════════════════════
+let mountainG = null;
+let contribFxG = null;
+let skyG = null;
+
 function buildScene() {
   svg.innerHTML = '';
-  const bgLayer = el('g');
-  svg.appendChild(bgLayer);
 
-  // Ground — runs edge to edge across the whole village
-  for (let x = 0; x < SVG_W; x += P) {
-    rect(x, GROUND_Y, P, P, (x/P)%7===0 ? C.grassSide : C.grassTop, bgLayer);
-    for (let row = 1; row < 14; row++)
-      rect(x, GROUND_Y+row*P, P, P, (x+row*3)%5===0 ? C.dirtDark : C.dirt, bgLayer);
-  }
+  // ── 1. Sky background rectangle (gradient is on CSS, but add a solid
+  //    tinted fill as a safety net in case CSS varies) ──
+  skyG = el('g');
+  rect(0, 0, SVG_W, GROUND_Y, '#8FD4EC', skyG);
+  svg.appendChild(skyG);
 
-  // Clouds spread across the wider sky
-  buildCloud(bgLayer,  60, 28, 60);
-  buildCloud(bgLayer, 300, 18, 70);
-  buildCloud(bgLayer, 680, 32, 55);
-  buildCloud(bgLayer, 950, 22, 65);
+  // ── 2. Distant mountain silhouettes (parallax, behind the main one) ──
+  const distantG = el('g', { opacity: 0.35 });
+  // Three far mountains
+  drawDistantMountain(distantG,  60, GROUND_Y - 40, 180, 110, '#6B8FAE');
+  drawDistantMountain(distantG, 250, GROUND_Y - 30, 220, 140, '#557A99');
+  drawDistantMountain(distantG, 530, GROUND_Y - 50, 260, 150, '#6B8FAE');
+  svg.appendChild(distantG);
 
-  // Sun — round 8x8 sprite placed in the upper-right area of the wider sky
+  // ── 3. Clouds scattered across the sky ──
+  const cloudsG = el('g');
+  buildCloud(cloudsG,  60, 40, 70);
+  buildCloud(cloudsG, 260, 20, 80);
+  buildCloud(cloudsG, 480, 55, 60);
+  buildCloud(cloudsG, 640, 30, 75);
+  svg.appendChild(cloudsG);
+
+  // ── 4. Sun (round, top-right) ──
   sunG = el('g');
   const sunPx = [
     '..YYYY..',
@@ -1353,73 +1448,92 @@ function buildScene() {
     '.YYYYYY.',
     '..YYYY..',
   ];
-  renderSprite(sunPx, {Y:'#FFD700'}, 1080, 20, 5, sunG);
-  // Eight radiating rays around (1100, 40)
+  // Sun centered around (690, 90), scale 5 → 40×40 body + rays
+  renderSprite(sunPx, {Y:'#FFD700'}, 670, 70, 5, sunG);
   [
-    [1124, 37, 10, 4],  // east
-    [1066, 37, 10, 4],  // west
-    [1098,  6,  4, 10], // north
-    [1098, 64,  4, 10], // south
-    [1122, 13,  5, 5],  // northeast
-    [1073, 13,  5, 5],  // northwest
-    [1122, 62,  5, 5],  // southeast
-    [1073, 62,  5, 5],  // southwest
+    [714, 87, 12, 4],   // east
+    [652, 87, 12, 4],   // west
+    [688, 52,  4, 12],  // north
+    [688,114,  4, 12],  // south
+    [712, 63,  6, 6],   // northeast
+    [660, 63,  6, 6],   // northwest
+    [712,112,  6, 6],   // southeast
+    [660,112,  6, 6],   // southwest
   ].forEach(([rx,ry,rw,rh]) => rect(rx,ry,rw,rh,'#FFD700',sunG));
   svg.appendChild(sunG);
 
-  // Moon (for break/night)
+  // ── 5. Moon (break/night) ──
   moonG = el('g', {opacity:0});
-  renderSprite(['..MM..','.MMMM.','MMMMMM','MMmmMM','.MmMM.','..MM..'], {M:C.moon,m:C.moonDark}, 120, 30, 7, moonG);
+  renderSprite(['..MM..','.MMMM.','MMMMMM','MMmmMM','.MmMM.','..MM..'], {M:C.moon,m:C.moonDark}, 90, 60, 8, moonG);
   svg.appendChild(moonG);
 
-  // Main plot trees — frame the central plot left and right
-  buildTree(bgLayer, 485);
-  buildTree(bgLayer, 695);
-
-  // Plot dividers layer — subtle fence posts between plots
-  const dividerG = el('g', { opacity: 0.45 });
-  // 8 divider positions: x=120, 240, 360, 480(before main), 720(after main), 840, 960, 1080
-  [120, 240, 360, 480, 720, 840, 960, 1080].forEach(dx => {
-    // Two small fence posts per divider
-    rect(dx - 1, GROUND_Y - 10, 2, 10, C.wood, dividerG);
-    rect(dx - 2, GROUND_Y - 12, 4, 2, C.woodLight, dividerG);
-  });
-  svg.appendChild(dividerG);
-
-  // Remote users layer — drawn before focus layer so main Steve stays on top
+  // ── 6. Remote users layer (BACK row characters — drawn before mountain) ──
   remoteUsersG = el('g');
   svg.appendChild(remoteUsersG);
 
-  // Focus layer (main plot content)
+  // ── 7. Central Mountain (collective) — main visual anchor ──
+  mountainG = el('g');
+  svg.appendChild(mountainG);
+
+  // ── 8. Front grass strip under the main area ──
+  const groundG = el('g');
+  for (let x = 0; x < SVG_W; x += P) {
+    // Grass top layer
+    rect(x, GROUND_Y, P, P, (x/P)%5===0 ? C.grassSide : C.grassTop, groundG);
+    rect(x, GROUND_Y + P, P, P, (x/P)%7===0 ? C.grassSide : C.grassTop, groundG);
+    // Dirt rows below
+    for (let row = 2; row < 10; row++) {
+      rect(x, GROUND_Y + row*P, P, P, (x+row*3)%5===0 ? C.dirtDark : C.dirt, groundG);
+    }
+  }
+  svg.appendChild(groundG);
+
+  // ── 9. Main Steve trees (close to main Steve, on either side) ──
+  const mainTreesG = el('g');
+  buildTree(mainTreesG, 240);
+  buildTree(mainTreesG, 540);
+  svg.appendChild(mainTreesG);
+
+  // ── 10. Focus layer (legacy — ore block hidden, only kept for
+  //        crack overlay compatibility with updateMining fallback path) ──
   focusLayerG = el('g');
   svg.appendChild(focusLayerG);
   blockShakeG = el('g');
   oreBlockG = renderSprite(ORE_BLOCK, ORE_COLORS, ORE_X, ORE_Y, P, blockShakeG);
+  oreBlockG.setAttribute('opacity', 0);  // never visible in new layout
   crackOverlayG = el('g');
   blockShakeG.appendChild(crackOverlayG);
   focusLayerG.appendChild(blockShakeG);
 
-  // Hill (grows as Steve digs, within main plot)
+  // Hill layer (legacy — now repurposed for small visual flourishes
+  // but does NOT hold the main mountain, which is mountainG instead).
   hillG = el('g');
   focusLayerG.appendChild(hillG);
 
-  // Creeper peeks from behind the right main-plot tree
+  // ── 11. Creeper (random appearance during focus) ──
   creeperG = el('g', {opacity:0});
-  renderSprite(CREEPER, CREEPER_COLORS, 720, GROUND_Y-8*P, 5, creeperG);
+  renderSprite(CREEPER, CREEPER_COLORS, 560, GROUND_Y-8*P, 5, creeperG);
   focusLayerG.appendChild(creeperG);
 
-  // Break layer (night scene overlays on the main plot)
+  // ── 12. Break layer (night overlay) ──
   breakLayerG = el('g', {opacity:0});
   svg.appendChild(breakLayerG);
   campfireG = el('g');
-  buildCampfire(campfireG, 590, GROUND_Y-4*P);
+  buildCampfire(campfireG, MAIN_STEVE_X + 60, GROUND_Y-4*P);
   breakLayerG.appendChild(campfireG);
 
-  // Wolf in break scene — sits in main plot, right side
+  // Wolf — sits on the other side of main Steve during break
   wolfG = el('g');
   renderSprite(WOLF1, WOLF_COLORS, 0, 0, 6, wolfG);
-  wolfG.setAttribute('transform', `translate(650,${GROUND_Y-7*P})`);
+  wolfG.setAttribute('transform', `translate(${MAIN_STEVE_X - 80},${GROUND_Y-7*P})`);
   breakLayerG.appendChild(wolfG);
+
+  // ── 13. Contribution FX layer (blocks flying to mountain) ──
+  contribFxG = el('g');
+  svg.appendChild(contribFxG);
+
+  // ── Initial mountain render (before any live data arrives) ──
+  renderMountain();
 
   // Chicken
   chickenG = el('g', {opacity:0});
@@ -1486,6 +1600,227 @@ function buildCampfire(parent, x, y) {
     const f = rect(x+fx*P, y+fy*P, P, P, fc, parent);
     f.style.animation = `${Math.random()>.5?'flicker1':'flicker2'} ${.3+Math.random()*.3}s infinite alternate`;
   });
+}
+
+// ═══════════════════════════════════════════
+// DISTANT MOUNTAINS — parallax silhouettes behind the main one
+// Draws a jagged triangular pixel mountain at (x, y) with the given
+// width/height and fill color. Simple parallax depth cue.
+// ═══════════════════════════════════════════
+function drawDistantMountain(parent, x, baseY, width, height, color) {
+  const steps = 8;
+  const halfW = width / 2;
+  const peakX = x + halfW;
+  const peakY = baseY - height;
+  // Left slope
+  for (let i = 0; i < steps; i++) {
+    const lx = x + (halfW * i / steps);
+    const ly = baseY - (height * i / steps);
+    const stepW = halfW / steps + 3;
+    rect(lx, ly, stepW, baseY - ly, color, parent);
+  }
+  // Right slope
+  for (let i = 0; i < steps; i++) {
+    const rx = peakX + (halfW * i / steps);
+    const ry = peakY + (height * i / steps);
+    const stepW = halfW / steps + 3;
+    rect(rx, ry, stepW, baseY - ry, color, parent);
+  }
+  // Small snow cap
+  const snowH = 6;
+  rect(peakX - 4, peakY, 8, snowH, '#FFFFFF', parent);
+}
+
+// ═══════════════════════════════════════════
+// COLLECTIVE MOUNTAIN RENDERER
+// ─────────────────────────────────────────
+// Draws a central pyramid mountain whose layer count = f(globalBlocks).
+// Layers are drawn as horizontal bands, narrowing as they go up, with
+// simple left/right face shading to suggest isometric 3D depth.
+//
+// Color zones (bottom → top):
+//   Bottom third: grass / dirt
+//   Middle third: stone gray
+//   Top third:    snow white-blue
+//
+// Called by:
+//   - buildScene() on initial load
+//   - renderMountain() on every globalMountainBlocks update
+//   - applyTheme() so the mountain respects the active theme's palette
+// ═══════════════════════════════════════════
+
+// Computes how many visual layers to show from a global block count.
+// Logarithmic so early contributions feel rewarding and later ones
+// don't explode the mountain off the canvas.
+function computeMountainLayers(globalBlocks) {
+  const b = Math.max(0, globalBlocks || 0);
+  if (b < 10)   return 3;
+  if (b < 30)   return 5;
+  if (b < 60)   return 7;
+  if (b < 120)  return 9;
+  if (b < 250)  return 11;
+  if (b < 500)  return 13;
+  return MOUNTAIN_MAX_LAYERS;
+}
+
+function mountainLayerColors(layerIndex, totalLayers) {
+  // Bottom third: earth tones
+  // Middle third: stone
+  // Top third: snow
+  const ratio = layerIndex / totalLayers;
+  if (ratio > 0.7) {
+    return { main: '#E8F0FA', shade: '#B0C4D8', highlight: '#FFFFFF' }; // snow
+  }
+  if (ratio > 0.35) {
+    return { main: '#808080', shade: '#606060', highlight: '#A0A0A0' }; // stone
+  }
+  return { main: '#5B8731', shade: '#3C5A1E', highlight: '#8DB360' };   // grass/dirt
+}
+
+function renderMountain() {
+  if (!mountainG) return;
+  mountainG.innerHTML = '';
+
+  const layers = computeMountainLayers(globalMountainBlocks);
+
+  // Widest layer at the bottom, each layer above is narrower by 2 blocks
+  // (one block off each side). Block height = MOUNTAIN_LAYER_H (16px),
+  // block width = MOUNTAIN_BLOCK_W (20px).
+  const baseBlocks = layers * 2 + 3;  // odd number so it's symmetric
+
+  for (let i = 0; i < layers; i++) {
+    const blocksThisLayer = baseBlocks - (i * 2);
+    if (blocksThisLayer <= 0) break;
+
+    const layerW = blocksThisLayer * MOUNTAIN_BLOCK_W;
+    const layerX = MOUNTAIN_CENTER_X - layerW / 2;
+    const layerY = MOUNTAIN_BASE_Y - (i + 1) * MOUNTAIN_LAYER_H;
+
+    const { main, shade, highlight } = mountainLayerColors(i, layers);
+
+    // Main body fill
+    rect(layerX, layerY, layerW, MOUNTAIN_LAYER_H, main, mountainG);
+
+    // Left face shading (darker left edge) — gives isometric feel
+    rect(layerX, layerY, 4, MOUNTAIN_LAYER_H, shade, mountainG);
+    rect(layerX + 4, layerY, 2, MOUNTAIN_LAYER_H, shade, mountainG);
+
+    // Right highlight edge (lighter right side)
+    rect(layerX + layerW - 4, layerY, 4, MOUNTAIN_LAYER_H, highlight, mountainG);
+
+    // Top edge highlight (1px lighter strip)
+    rect(layerX, layerY, layerW, 2, highlight, mountainG);
+
+    // Scattered "block texture" dots for pixel feel
+    for (let bx = 0; bx < blocksThisLayer; bx++) {
+      const dx = layerX + bx * MOUNTAIN_BLOCK_W + MOUNTAIN_BLOCK_W / 2;
+      // Small shadow dot at block center for depth
+      if ((bx + i) % 3 === 0) {
+        rect(dx - 1, layerY + MOUNTAIN_LAYER_H - 4, 2, 2, shade, mountainG);
+      }
+    }
+  }
+
+  // Peak flag — adds a playful cherry on top when the mountain is big
+  if (layers >= 10) {
+    const topY = MOUNTAIN_BASE_Y - layers * MOUNTAIN_LAYER_H - 20;
+    const flagX = MOUNTAIN_CENTER_X;
+    // Pole
+    rect(flagX, topY, 2, 20, '#8B7355', mountainG);
+    // Flag body
+    rect(flagX + 2, topY, 14, 10, '#E63946', mountainG);
+    rect(flagX + 2, topY + 1, 2, 8, '#B02A37', mountainG);
+  }
+}
+
+// Format a big number with comma separators
+function fmtNum(n) {
+  return String(n || 0).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+}
+
+function renderMountainBadge() {
+  const el = document.getElementById('mountainBadge');
+  if (!el) return;
+  const total = fmtNum(globalMountainBlocks);
+  const mine = myMountainContribution;
+  const layers = computeMountainLayers(globalMountainBlocks);
+  if (mine > 0) {
+    el.innerHTML = `🏔️ <b>${total}</b> blocks · ${layers} layers · <span class="my-contrib">+${mine} from you</span>`;
+  } else {
+    el.innerHTML = `🏔️ <b>${total}</b> blocks · ${layers} layers · focus to contribute`;
+  }
+}
+
+// ═══════════════════════════════════════════
+// CONTRIBUTION BLOCK ANIMATION
+// ─────────────────────────────────────────
+// When a focus session completes (local OR broadcast from another
+// user), a colored block flies from the contributor's character slot
+// in a parabolic arc to the mountain peak, then lands with a small
+// particle burst. Pure visual feedback — no state changes.
+// ═══════════════════════════════════════════
+function flyContributionBlock(session) {
+  if (!contribFxG) return;
+
+  // Decide origin point: if the session's nick matches one of our
+  // visible remote users, start from that user's slot. Otherwise,
+  // start from a generic off-screen point.
+  let startX = MAIN_STEVE_X + 24;
+  let startY = GROUND_Y - 40;
+  if (session && session.nick) {
+    const others = (liveUsers || []).filter(u => u.id !== myUserId);
+    const idx = others.findIndex(u => u.nick === session.nick);
+    if (idx >= 0 && idx < CHAR_SLOTS.length) {
+      const slot = CHAR_SLOTS[idx];
+      startX = slot.x;
+      startY = slot.y - 20;
+    }
+  }
+
+  // Mountain peak as the destination
+  const layers = computeMountainLayers(globalMountainBlocks);
+  const endX = MOUNTAIN_CENTER_X + (Math.random() - 0.5) * 20;
+  const endY = MOUNTAIN_BASE_Y - layers * MOUNTAIN_LAYER_H + 10;
+
+  // Pick a color based on the session's theme
+  const themeKey = (session && session.theme) || 'tomato';
+  const theme = THEMES[themeKey] || THEMES.tomato;
+  const blockColor = theme.oreColor;
+
+  // Create the flying block
+  const block = el('g');
+  rect(0, 0, 8, 8, blockColor, block);
+  rect(0, 0, 8, 2, '#FFFFFF', block);  // top highlight
+  rect(0, 6, 8, 2, '#000000', block);  // bottom shadow
+  contribFxG.appendChild(block);
+
+  // Parabolic arc via Web Animations API — 3 keyframes
+  const midX = (startX + endX) / 2;
+  const midY = Math.min(startY, endY) - 80 - Math.random() * 30;
+  block.animate([
+    { transform: `translate(${startX}px, ${startY}px) scale(1) rotate(0deg)`, opacity: 1 },
+    { transform: `translate(${midX}px, ${midY}px) scale(1.3) rotate(180deg)`, opacity: 1 },
+    { transform: `translate(${endX}px, ${endY}px) scale(0.8) rotate(360deg)`, opacity: 1 },
+  ], { duration: 900, easing: 'ease-in', fill: 'forwards' });
+
+  // After landing, sparkle + remove
+  setTimeout(() => {
+    // Spawn small particles at the landing point
+    for (let i = 0; i < 6; i++) {
+      const p = el('rect', {
+        x: endX, y: endY, width: 3, height: 3, fill: blockColor,
+      });
+      const dx = (Math.random() - 0.5) * 40;
+      const dy = -10 - Math.random() * 20;
+      p.animate([
+        { transform: 'translate(0,0)', opacity: 1 },
+        { transform: `translate(${dx}px, ${dy}px)`, opacity: 0 },
+      ], { duration: 500, fill: 'forwards' });
+      contribFxG.appendChild(p);
+      setTimeout(() => p.remove(), 550);
+    }
+    block.remove();
+  }, 900);
 }
 
 // ═══════════════════════════════════════════
@@ -2103,10 +2438,19 @@ const HAS_BACKEND = API_BASE_URL.length > 0;
 let liveOnlineCount = null;     // number | null
 let liveTodayHarvest = 0;
 let liveFeed = [];              // [{ minutes, theme, nick, at }, ...]
-let liveUsers = [];             // [{ id, nick, theme, timerMode, remainingSec, totalSec }]
+let liveUsers = [];             // [{ id, nick, theme, timerMode, remainingSec, totalSec, country }]
 let myUserId = null;            // our own id, so we filter ourselves from the list
 let presenceSocket = null;
 let stateBroadcastTimer = null; // setInterval handle for periodic state updates
+
+// ── Collective Mountain — global shared counter ──
+// When HAS_BACKEND, this comes from the Worker's mountain_stats table.
+// Offline/solo fallback: seeded with a welcoming starter value so the
+// mountain never looks empty on first visit. Each local focus session
+// bumps this too, even without backend, so the "contribution" feels
+// real immediately.
+let globalMountainBlocks = 80;
+let myMountainContribution = 0;  // blocks I've added this session (local)
 
 function estimateFocusersNow() {
   // Fallback for when the backend isn't configured
@@ -2133,6 +2477,11 @@ async function fetchGlobalStats() {
     liveTodayHarvest = (data.today && data.today.sessions) || 0;
     liveFeed = data.feed || [];
     liveUsers = data.users || [];
+    if (data.mountain && typeof data.mountain.blocks === 'number') {
+      globalMountainBlocks = data.mountain.blocks;
+      renderMountain();
+      renderMountainBadge();
+    }
     renderRemoteUsers();
     return data;
   } catch (e) {
@@ -2188,6 +2537,17 @@ function connectPresence() {
         } else if (msg.type === 'session') {
           liveFeed = [msg.session, ...liveFeed].slice(0, 10);
           liveTodayHarvest++;
+          if (msg.mountain && typeof msg.mountain.blocks === 'number') {
+            const delta = msg.mountain.blocks - globalMountainBlocks;
+            globalMountainBlocks = msg.mountain.blocks;
+            renderMountain();
+            renderMountainBadge();
+            // Animate a block flying toward the mountain from the
+            // contributing user's slot (if we can find it).
+            if (msg.session && delta > 0) {
+              flyContributionBlock(msg.session);
+            }
+          }
           renderLiveFeed();
           updateSocialProof();
         } else if (msg.type === 'pong') {
@@ -2386,63 +2746,134 @@ function renderRemoteUsers() {
   if (!remoteUsersG) return;
   remoteUsersG.innerHTML = '';
 
-  // Always draw decorative "empty" content in every neighbor plot so the
-  // village never looks broken. Plots occupied by real users are then
-  // overlaid with that user's mini Steve.
   const others = (liveUsers || []).filter(u => u.id !== myUserId);
-  const occupied = new Set();
-  others.slice(0, PLOT_SLOTS.length).forEach((user, i) => {
-    occupied.add(i);
-    const slot = PLOT_SLOTS[i];
-    drawPlotTree(remoteUsersG, slot.centerX);
-    drawRemoteSteve(remoteUsersG, slot.centerX + MINI_STEVE_OFFSET_X,
-                    PLOT_GROUND_Y + MINI_STEVE_OFFSET_Y, user);
+  const maxSlots = CHAR_SLOTS.length;
+
+  // Sort: occupy back row first (farther = less central), then mid, then front.
+  // This ensures that as users join, they fill from the back forward,
+  // keeping main Steve visually dominant until the space fills up.
+  others.slice(0, maxSlots).forEach((user, i) => {
+    const slot = CHAR_SLOTS[i];
+    drawRemoteSteveInSlot(remoteUsersG, slot, user);
   });
 
-  // Empty plots — just a small tree + gentle "available" hint
-  PLOT_SLOTS.forEach((slot, i) => {
-    if (occupied.has(i)) return;
-    drawPlotTree(remoteUsersG, slot.centerX, /* faded */ true);
-  });
-
-  // Overflow indicator: "+N more" floating text at the edges
-  if (others.length > PLOT_SLOTS.length) {
-    const overflow = others.length - PLOT_SLOTS.length;
+  // Overflow indicator — "+N more" text at the top-right corner
+  if (others.length > maxSlots) {
+    const overflow = others.length - maxSlots;
     const t = el('text', {
-      x: SVG_W - 30, y: GROUND_Y - 80,
+      x: SVG_W - 20, y: 30,
       fill: '#FFF',
-      'font-size': 10,
+      'font-size': 12,
       'font-family': 'Press Start 2P, monospace',
       'text-anchor': 'end',
-      'stroke': '#000', 'stroke-width': 1.5,
+      'stroke': '#000', 'stroke-width': 2,
       'paint-order': 'stroke',
     });
-    t.textContent = `+${overflow} more →`;
+    t.textContent = `+${overflow} more`;
     remoteUsersG.appendChild(t);
   }
 }
 
-// Draw a small tree per plot — every plot gets one so neighbor plots
-// never feel empty. When `faded` is true, the tree is rendered at lower
-// opacity to signal "no one is here yet".
-function drawPlotTree(parent, centerX, faded = false) {
-  const g = el('g', { opacity: faded ? 0.45 : 0.95 });
-  // Trunk (3 blocks tall)
-  const trunkX = centerX + 16;  // offset to the right of mini Steve
-  for (let i = 0; i < 3; i++) {
-    rect(trunkX, GROUND_Y - (i + 1) * 3, 3, 3, i % 2 === 0 ? C.wood : C.woodLight, g);
+// Draw one remote user at a CHAR_SLOT position. The slot's `scale`
+// determines the mini Steve's pixel size, so back-row characters are
+// naturally smaller than mid/front-row ones — creating depth.
+function drawRemoteSteveInSlot(parent, slot, user) {
+  const scale = slot.scale;  // 3 (back), 4 (mid), 5 (front)
+  const bodyW = 8 * scale;
+  const bodyH = 14 * scale;  // 12 body + 2 legs
+
+  // Opacity varies slightly by row for atmospheric depth
+  const opacity = slot.row === 'back' ? 0.85 : (slot.row === 'mid' ? 0.92 : 1.0);
+
+  // Top-left of the sprite: slot.x,y is the feet position, so subtract body height
+  const ox = slot.x - bodyW / 2;
+  const oy = slot.y - bodyH;
+  const g = el('g', { transform: `translate(${ox},${oy})`, opacity });
+
+  const isBreak = user.timerMode === 'break' || user.timerMode === 'longbreak';
+  const isFocus = user.timerMode === 'focus';
+
+  // Body + legs (sit vs stand)
+  if (isBreak) {
+    renderSprite(STEVE_SIT_BODY, CHAR, 0, 0, scale, g);
+    renderSprite(STEVE_SIT_LEGS, CHAR, 0, STEVE_SIT_BODY.length * scale, scale, g);
+  } else {
+    renderSprite(STEVE_BODY, CHAR, 0, 0, scale, g);
+    renderSprite(LEG_STAND, CHAR, 0, STEVE_BODY.length * scale, scale, g);
   }
-  // Leaves — small cluster
-  const lx = trunkX - 3, ly = GROUND_Y - 15;
-  const leafPattern = [
-    [0, 0], [3, 0], [6, 0],
-    [-3, 3], [0, 3], [3, 3], [6, 3], [9, 3],
-    [0, 6], [3, 6], [6, 6],
-  ];
-  leafPattern.forEach(([dx, dy]) => {
-    rect(lx + dx, ly + dy, 3, 3,
-      (dx + dy) % 6 === 0 ? C.leavesBright : C.leaves, g);
+
+  // Focus mode: pickaxe beside the body (tilted -20°)
+  if (isFocus) {
+    const pickG = el('g', {
+      transform: `translate(${7 * scale}, ${7 * scale}) rotate(-20)`,
+    });
+    renderSprite(PICK_HANDLE, PICK_COLORS, 0, 0, Math.max(2, scale - 1), pickG);
+    g.appendChild(pickG);
+  }
+
+  // Break mode: 💤 above head
+  if (isBreak) {
+    const zzz = el('text', {
+      x: 5 * scale, y: -Math.max(6, scale * 1.5),
+      fill: '#88BBFF',
+      'font-size': Math.max(10, scale * 2.5),
+      'font-family': 'sans-serif',
+      'text-anchor': 'middle',
+    });
+    zzz.textContent = '💤';
+    g.appendChild(zzz);
+  }
+
+  // Flag + nickname above head — font scales with row
+  const flag = countryCodeToFlag(user.country);
+  const nick = (user.nick || 'guest').slice(0, 10);
+  const label = flag ? `${flag} ${nick}` : nick;
+  const labelFontSize = slot.row === 'back' ? 6 : (slot.row === 'mid' ? 7 : 8);
+  const nickText = el('text', {
+    x: 4 * scale,
+    y: -3,
+    fill: '#FFF',
+    'font-size': labelFontSize,
+    'font-family': 'Press Start 2P, monospace',
+    'text-anchor': 'middle',
+    'stroke': '#000',
+    'stroke-width': 1,
+    'paint-order': 'stroke',
   });
+  nickText.textContent = label;
+  g.appendChild(nickText);
+
+  // Timer state below feet
+  const stateFontSize = slot.row === 'back' ? 6 : 7;
+  const stateText = el('text', {
+    x: 4 * scale,
+    y: bodyH + 10,
+    fill: '#FFD700',
+    'font-size': stateFontSize,
+    'font-family': 'Press Start 2P, monospace',
+    'text-anchor': 'middle',
+    'stroke': '#000',
+    'stroke-width': 1,
+    'paint-order': 'stroke',
+  });
+  if (isFocus) {
+    const mins = Math.floor((user.remainingSec || 0) / 60);
+    const secs = (user.remainingSec || 0) % 60;
+    stateText.textContent = `${String(mins).padStart(2,'0')}:${String(secs).padStart(2,'0')}`;
+    stateText.setAttribute('fill', '#8DB360');
+  } else if (isBreak) {
+    stateText.textContent = 'BREAK';
+    stateText.setAttribute('fill', '#88BBFF');
+  } else {
+    stateText.textContent = 'IDLE';
+    stateText.setAttribute('fill', '#888');
+  }
+  g.appendChild(stateText);
+
+  // Theme color dot just above the nickname
+  const themeColor = (THEMES[user.theme] && THEMES[user.theme].oreColor) || C.tomatoRed;
+  rect(4 * scale - 2, -11, 4, 4, themeColor, g);
+
   parent.appendChild(g);
 }
 
@@ -3222,6 +3653,7 @@ buildScene();
 // Paint the initial village state — empty plots with small trees even
 // when we have no live users yet, so the scene never looks broken.
 renderRemoteUsers();
+renderMountainBadge();
 renderDailyStats();
 renderSessionLog();
 buildThemePicker();
