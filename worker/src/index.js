@@ -132,13 +132,18 @@ export class FocusHub {
 
   // ─── WebSocket presence — full per-user state tracking ────────
   // Each connected user has attached state on their WebSocket:
-  //   { id, nick, theme, timerMode, remainingSec, totalSec, updatedAt }
+  //   { id, nick, country, theme, timerMode, remainingSec, totalSec, updatedAt }
   // Stored via ws.serializeAttachment() so it survives hibernation.
   handlePresence(request) {
     const upgradeHeader = request.headers.get('Upgrade');
     if (upgradeHeader !== 'websocket') {
       return json({ error: 'expected websocket upgrade' }, 426);
     }
+
+    // Cloudflare automatically provides the client's ISO-3166-1 alpha-2
+    // country code in request.cf.country (e.g. "KR", "US"). Free,
+    // accurate, no extra services needed. Fallback "ZZ" = unknown.
+    const country = (request.cf && request.cf.country) || 'ZZ';
 
     const { 0: client, 1: server } = new WebSocketPair();
     this.state.acceptWebSocket(server);
@@ -148,6 +153,7 @@ export class FocusHub {
     server.serializeAttachment({
       id,
       nick: 'guest',
+      country,
       theme: 'tomato',
       timerMode: 'idle',
       remainingSec: 0,
@@ -243,6 +249,7 @@ export class FocusHub {
       users.push({
         id: a.id,
         nick: a.nick,
+        country: a.country || 'ZZ',
         theme: a.theme,
         timerMode: a.timerMode,
         remainingSec: a.remainingSec,
