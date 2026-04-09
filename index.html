@@ -1447,20 +1447,23 @@ function buildScene() {
   buildCloud(cloudsG,  80, 140, 50);  // cloud near lower-left sky
   svg.appendChild(cloudsG);
 
-  // ── 3b. Birds — visible silhouettes scattered across the sky ──
-  // Mix of sizes: a few big ones in the foreground, a flock of smaller
-  // ones receding into the distance for depth.
+  // ── 3b. Animated birds — each flies across the sky at its own
+  //        speed with subtle vertical bobbing. Staggered start
+  //        positions so they don't all bunch up.
+  //        drawBird(parent, startX, y, size, durationSec, direction)
   const birdsG = el('g');
-  // Big bird, upper-left (foreground)
-  drawBird(birdsG, 120,  70, 3);
-  // Small flock in V formation, upper-center/right area (near the sun)
-  drawBird(birdsG, 560, 110, 2);
-  drawBird(birdsG, 590, 130, 2);
-  drawBird(birdsG, 620, 110, 2);
-  // Mid-level solo bird, left of center
-  drawBird(birdsG, 250, 170, 2);
-  // Distant small bird near the sun (right side)
-  drawBird(birdsG, 680, 190, 2);
+  // Big lead bird — flies left→right over 22s
+  drawBird(birdsG, -40,  80, 3, 22,  1);
+  // Mid-size bird, higher in the sky, slightly faster
+  drawBird(birdsG, -200, 130, 2, 18,  1);
+  // Three-bird flock following the leader (staggered)
+  drawBird(birdsG, -320, 100, 2, 26,  1);
+  drawBird(birdsG, -360, 120, 2, 26,  1);
+  drawBird(birdsG, -400, 105, 2, 26,  1);
+  // Right-to-left bird, different altitude
+  drawBird(birdsG,  900, 170, 2, 30, -1);
+  // Distant small bird near the sun
+  drawBird(birdsG,  -80, 200, 1, 35,  1);
   svg.appendChild(birdsG);
 
   // ── 4. Sun (round, top-right) ──
@@ -1632,28 +1635,49 @@ function buildCampfire(parent, x, y) {
 }
 
 // ═══════════════════════════════════════════
-// BIRD — M-silhouette flying in the sky
-// Scaled so it's actually visible on the 800x600 canvas.
-// Uses a chunky 20x8 M-shape in solid dark color.
+// BIRD — animated M-silhouette flying across the sky
+// Uses SVG SMIL animateTransform for smooth horizontal travel +
+// a subtle vertical bob so it doesn't feel like a sliding sticker.
 // ═══════════════════════════════════════════
-function drawBird(parent, x, y, size = 2) {
-  const g = el('g');
+function drawBird(parent, startX, y, size = 2, durationSec = 30, direction = 1) {
+  // Outer group handles the SMIL position; inner group holds pixels
+  const g = el('g', { transform: `translate(${startX},${y})` });
   const c = '#1A2840';
-  // Scale-based 10x4 "M" silhouette: left wing tip goes up, dips in
-  // the middle, right wing tip goes up. Each pixel is `size` × `size`.
   const s = size;
-  // Left wing up
-  rect(x,           y,         s * 2, s, c, g);
-  rect(x + s * 2,   y + s,     s * 2, s, c, g);
-  // Left wing dip into body
-  rect(x + s * 4,   y + s * 2, s * 2, s, c, g);
-  // Body / V center
-  rect(x + s * 5,   y + s * 3, s * 2, s, c, g);
-  // Right wing rise
-  rect(x + s * 6,   y + s * 2, s * 2, s, c, g);
-  rect(x + s * 8,   y + s,     s * 2, s, c, g);
-  // Right wing tip
-  rect(x + s * 10,  y,         s * 2, s, c, g);
+  // M-shaped silhouette at local (0,0)
+  rect(0,         0,     s * 2, s, c, g);
+  rect(s * 2,     s,     s * 2, s, c, g);
+  rect(s * 4,     s * 2, s * 2, s, c, g);
+  rect(s * 5,     s * 3, s * 2, s, c, g);
+  rect(s * 6,     s * 2, s * 2, s, c, g);
+  rect(s * 8,     s,     s * 2, s, c, g);
+  rect(s * 10,    0,     s * 2, s, c, g);
+
+  // Horizontal travel — additive so it composes with the base translate
+  const travel = direction > 0 ? (SVG_W + 120) : -(SVG_W + 120);
+  const moveX = el('animateTransform', {
+    attributeName: 'transform',
+    type: 'translate',
+    additive: 'sum',
+    from: '0 0',
+    to: `${travel} 0`,
+    dur: `${durationSec}s`,
+    repeatCount: 'indefinite',
+  });
+  g.appendChild(moveX);
+
+  // Subtle vertical bob — sine-like via 5 keyframes
+  const bobAmp = s * 2;
+  const bobY = el('animateTransform', {
+    attributeName: 'transform',
+    type: 'translate',
+    additive: 'sum',
+    values: `0 0; 0 -${bobAmp}; 0 0; 0 ${bobAmp}; 0 0`,
+    dur: `${2 + size}s`,
+    repeatCount: 'indefinite',
+  });
+  g.appendChild(bobY);
+
   parent.appendChild(g);
 }
 
@@ -2633,6 +2657,74 @@ let stateBroadcastTimer = null; // setInterval handle for periodic state updates
 let globalMountainBlocks = 80;
 let myMountainContribution = 0;  // blocks I've added this session (local)
 
+// ═══════════════════════════════════════════
+// DEMO USERS — offline/pre-backend placeholder population
+// ─────────────────────────────────────────
+// When HAS_BACKEND is off OR when a real backend returns zero users,
+// we show this set of 8 demo characters so the scene never looks
+// empty. Their timers tick down in real time via a 1-second loop,
+// and they auto-cycle between focus/break/idle states so the village
+// always feels alive.
+//
+// IMPORTANT: these are purely visual fillers — they do NOT contribute
+// to the mountain or any stats. The moment real users arrive via the
+// Worker, `liveUsers` takes over and these disappear.
+// ═══════════════════════════════════════════
+const DEMO_USERS = [
+  { id: 'demo1', nick: 'alice',    country: 'US', theme: 'diamond', timerMode: 'focus', remainingSec: 1450, totalSec: 1500 },
+  { id: 'demo2', nick: '유나',      country: 'KR', theme: 'tomato',  timerMode: 'focus', remainingSec:  872, totalSec: 1500 },
+  { id: 'demo3', nick: 'hiroshi',  country: 'JP', theme: 'ruby',    timerMode: 'break', remainingSec:  245, totalSec:  300 },
+  { id: 'demo4', nick: 'emre',     country: 'DE', theme: 'emerald', timerMode: 'focus', remainingSec: 2100, totalSec: 3000 },
+  { id: 'demo5', nick: 'priya',    country: 'IN', theme: 'diamond', timerMode: 'break', remainingSec:  120, totalSec:  300 },
+  { id: 'demo6', nick: 'bruno',    country: 'BR', theme: 'tomato',  timerMode: 'focus', remainingSec:  540, totalSec: 1500 },
+  { id: 'demo7', nick: 'zara',     country: 'VN', theme: 'emerald', timerMode: 'focus', remainingSec:  900, totalSec: 1500 },
+  { id: 'demo8', nick: 'devsteve', country: 'GB', theme: 'gold',    timerMode: 'idle',  remainingSec:    0, totalSec:    0 },
+];
+
+// Decide which list to actually render — real users if we have any,
+// otherwise the demo fallback so the scene stays populated.
+function getEffectiveUsers() {
+  return (liveUsers && liveUsers.length > 0) ? liveUsers : DEMO_USERS;
+}
+
+// Tick demo users forward by 1 second. Switches mode at 0 for that
+// natural "sessions changing over" feel. Only runs while liveUsers
+// is empty (real users take precedence).
+function tickDemoUsers() {
+  if (liveUsers && liveUsers.length > 0) return;  // real users present
+  let changed = false;
+  DEMO_USERS.forEach((u) => {
+    if (u.timerMode === 'focus') {
+      u.remainingSec = Math.max(0, u.remainingSec - 1);
+      changed = true;
+      if (u.remainingSec === 0) {
+        // Session complete → short break
+        u.timerMode = 'break';
+        u.remainingSec = 300;
+        u.totalSec = 300;
+      }
+    } else if (u.timerMode === 'break' || u.timerMode === 'longbreak') {
+      u.remainingSec = Math.max(0, u.remainingSec - 1);
+      changed = true;
+      if (u.remainingSec === 0) {
+        // Break over → new focus session (1500s = 25min)
+        u.timerMode = 'focus';
+        u.remainingSec = 1500;
+        u.totalSec = 1500;
+      }
+    } else if (u.timerMode === 'idle') {
+      // Occasionally transition an idle user into focus
+      if (Math.random() < 0.008) {
+        u.timerMode = 'focus';
+        u.remainingSec = 1500;
+        u.totalSec = 1500;
+        changed = true;
+      }
+    }
+  });
+  if (changed) renderRemoteUsers();
+}
+
 function estimateFocusersNow() {
   // Fallback for when the backend isn't configured
   const hour = new Date().getHours();
@@ -2980,7 +3072,9 @@ function renderRemoteUsers() {
   if (!remoteUsersG) return;
   remoteUsersG.innerHTML = '';
 
-  const others = (liveUsers || []).filter(u => u.id !== myUserId);
+  // Use real users when available, otherwise fall back to DEMO_USERS
+  // so the scene stays populated (8 demo characters) even in solo mode.
+  const others = getEffectiveUsers().filter(u => u.id !== myUserId);
   const maxSlots = CHAR_SLOTS.length;
 
   // Sort: occupy back row first (farther = less central), then mid, then front.
@@ -3924,6 +4018,10 @@ syncToggleBtn('toggleAutoFocus', 'AUTO FOCUS', autoFocus);
 setMode('focus');
 updateDisplay();
 updateSocialProof();
+
+// Start the demo-user tick — ticks down their timers once per second
+// so the village feels alive whenever real users aren't present.
+setInterval(tickDemoUsers, 1000);
 
 // ── Multiplayer bootstrap (runs only if API_BASE_URL is configured) ──
 if (HAS_BACKEND) {
