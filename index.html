@@ -80,6 +80,16 @@ body {
 @keyframes twinkle { 0%{opacity:.3} 100%{opacity:1} }
 @keyframes flicker1 { 0%{opacity:1} 100%{opacity:.4} }
 @keyframes flicker2 { 0%{opacity:.4} 100%{opacity:1} }
+/* Remote character focus-mode pickaxe swing — rotates the pickaxe
+   back (wind-up) then forward (strike). transform-origin is set per
+   element inline so the pivot matches the character's shoulder. */
+@keyframes remoteSwing {
+  0%   { transform: rotate(-35deg); }
+  55%  { transform: rotate(-35deg); }
+  75%  { transform: rotate(55deg);  }
+  100% { transform: rotate(-35deg); }
+}
+.remote-pick-swing { animation: remoteSwing 1.4s ease-in-out infinite; }
 
 .app { position: relative; z-index: 1; width: 520px; max-width: 95vw; }
 .title { text-align: center; margin-bottom: 20px; color: #FFF; }
@@ -2915,14 +2925,14 @@ let myMountainContribution = 0;  // blocks I've added this session (local)
 // Worker, `liveUsers` takes over and these disappear.
 // ═══════════════════════════════════════════
 const DEMO_USERS = [
-  { id: 'demo1', nick: 'alice',    country: 'US', theme: 'diamond', timerMode: 'focus', remainingSec: 1450, totalSec: 1500 },
-  { id: 'demo2', nick: '유나',      country: 'KR', theme: 'tomato',  timerMode: 'focus', remainingSec:  872, totalSec: 1500 },
-  { id: 'demo3', nick: 'hiroshi',  country: 'JP', theme: 'ruby',    timerMode: 'break', remainingSec:  245, totalSec:  300 },
-  { id: 'demo4', nick: 'emre',     country: 'DE', theme: 'emerald', timerMode: 'focus', remainingSec: 2100, totalSec: 3000 },
-  { id: 'demo5', nick: 'priya',    country: 'IN', theme: 'diamond', timerMode: 'break', remainingSec:  120, totalSec:  300 },
-  { id: 'demo6', nick: 'bruno',    country: 'BR', theme: 'tomato',  timerMode: 'focus', remainingSec:  540, totalSec: 1500 },
-  { id: 'demo7', nick: 'zara',     country: 'VN', theme: 'emerald', timerMode: 'focus', remainingSec:  900, totalSec: 1500 },
-  { id: 'demo8', nick: 'devsteve', country: 'GB', theme: 'gold',    timerMode: 'focus', remainingSec: 1320, totalSec: 1500 },
+  { id: 'demo1', nick: 'alice',    country: 'US', theme: 'diamond', timerMode: 'focus', remainingSec: 1450, totalSec: 1500, tomatoesToday: 4 },
+  { id: 'demo2', nick: '유나',      country: 'KR', theme: 'tomato',  timerMode: 'focus', remainingSec:  872, totalSec: 1500, tomatoesToday: 7 },
+  { id: 'demo3', nick: 'hiroshi',  country: 'JP', theme: 'ruby',    timerMode: 'break', remainingSec:  245, totalSec:  300, tomatoesToday: 3 },
+  { id: 'demo4', nick: 'emre',     country: 'DE', theme: 'emerald', timerMode: 'focus', remainingSec: 2100, totalSec: 3000, tomatoesToday: 11 },
+  { id: 'demo5', nick: 'priya',    country: 'IN', theme: 'diamond', timerMode: 'break', remainingSec:  120, totalSec:  300, tomatoesToday: 5 },
+  { id: 'demo6', nick: 'bruno',    country: 'BR', theme: 'tomato',  timerMode: 'focus', remainingSec:  540, totalSec: 1500, tomatoesToday: 2 },
+  { id: 'demo7', nick: 'zara',     country: 'VN', theme: 'emerald', timerMode: 'focus', remainingSec:  900, totalSec: 1500, tomatoesToday: 6 },
+  { id: 'demo8', nick: 'devsteve', country: 'GB', theme: 'gold',    timerMode: 'focus', remainingSec: 1320, totalSec: 1500, tomatoesToday: 9 },
 ];
 
 // Decide which list to actually render — real users if we have any,
@@ -2934,13 +2944,18 @@ function getEffectiveUsers() {
 // Tick demo users forward by 1 second. Switches mode at 0 for that
 // natural "sessions changing over" feel. Only runs while liveUsers
 // is empty (real users take precedence).
+//
+// IMPORTANT: we intentionally do NOT call renderRemoteUsers() on
+// every per-second decrement — doing so would tear down and rebuild
+// the SVG group each tick, restarting the pickaxe-swing CSS
+// animation and making it look frozen. We only re-render when a
+// user actually changes mode (focus ↔ break), which is infrequent.
 function tickDemoUsers() {
   if (liveUsers && liveUsers.length > 0) return;  // real users present
-  let changed = false;
+  let modeChanged = false;
   DEMO_USERS.forEach((u) => {
     if (u.timerMode === 'focus') {
       u.remainingSec = Math.max(0, u.remainingSec - 1);
-      changed = true;
       if (u.remainingSec === 0) {
         // Session complete → short break. Drop a contribution burst
         // in the finished user's color so the mountain visibly
@@ -2948,18 +2963,20 @@ function tickDemoUsers() {
         u.timerMode = 'break';
         u.remainingSec = 300;
         u.totalSec = 300;
+        u.tomatoesToday = (u.tomatoesToday || 0) + 1;
+        modeChanged = true;
         if (typeof addRemoteContributionBurst === 'function') {
           addRemoteContributionBurst(u.nick, 3 + Math.floor(Math.random() * 3));
         }
       }
     } else if (u.timerMode === 'break' || u.timerMode === 'longbreak') {
       u.remainingSec = Math.max(0, u.remainingSec - 1);
-      changed = true;
       if (u.remainingSec === 0) {
         // Break over → new focus session (1500s = 25min)
         u.timerMode = 'focus';
         u.remainingSec = 1500;
         u.totalSec = 1500;
+        modeChanged = true;
       }
     } else if (u.timerMode === 'idle') {
       // Occasionally transition an idle user into focus
@@ -2967,11 +2984,11 @@ function tickDemoUsers() {
         u.timerMode = 'focus';
         u.remainingSec = 1500;
         u.totalSec = 1500;
-        changed = true;
+        modeChanged = true;
       }
     }
   });
-  if (changed) renderRemoteUsers();
+  if (modeChanged) renderRemoteUsers();
 
   // Demo-mode ambient contribution: periodically drop a small burst
   // of pixels in a random focused user's color. This makes the
@@ -3403,12 +3420,21 @@ function drawRemoteSteveInSlot(parent, slot, user) {
     renderSprite(LEG_STAND, userChar, 0, STEVE_BODY.length * scale, scale, g);
   }
 
-  // Focus mode: pickaxe beside the body (tilted -20°)
+  // Focus mode: animated pickaxe swinging beside the body. The
+  // outer <g> positions the pickaxe at the character's shoulder;
+  // the inner <g> carries the rotating CSS animation with a
+  // transform-origin set to the pickaxe's handle root so the swing
+  // pivots around the hands instead of the blade.
   if (isFocus) {
     const pickG = el('g', {
-      transform: `translate(${7 * scale}, ${7 * scale}) rotate(-20)`,
+      transform: `translate(${7 * scale}, ${6 * scale})`,
     });
-    renderSprite(PICK_HANDLE, PICK_COLORS, 0, 0, Math.max(2, scale - 1), pickG);
+    const pickSwing = el('g', {
+      class: 'remote-pick-swing',
+      style: 'transform-origin: 0px 0px;',
+    });
+    renderSprite(PICK_HANDLE, PICK_COLORS, 0, 0, Math.max(2, scale - 1), pickSwing);
+    pickG.appendChild(pickSwing);
     g.appendChild(pickG);
   }
 
@@ -3425,13 +3451,13 @@ function drawRemoteSteveInSlot(parent, slot, user) {
     g.appendChild(zzz);
   }
 
-  // ── Flag (BIG, separate from nickname) ──
+  // ── Flag right above the character's head (no nickname) ──
   const flag = countryCodeToFlag(user.country);
-  const flagSize = slot.row === 'back' ? 14 : (slot.row === 'mid' ? 16 : 18);
+  const flagSize = slot.row === 'back' ? 14 : (slot.row === 'mid' ? 17 : 20);
   if (flag) {
     const flagText = el('text', {
       x: 4 * scale,
-      y: -(scale * 3 + 8),  // sits above nickname
+      y: -4,  // sits directly above the head
       'font-size': flagSize,
       'font-family': '"Apple Color Emoji", "Segoe UI Emoji", sans-serif',
       'text-anchor': 'middle',
@@ -3440,53 +3466,27 @@ function drawRemoteSteveInSlot(parent, slot, user) {
     g.appendChild(flagText);
   }
 
-  // ── Nickname below the flag, smaller ──
-  const nick = (user.nick || 'guest').slice(0, 10);
-  const labelFontSize = slot.row === 'back' ? 6 : (slot.row === 'mid' ? 7 : 8);
-  const nickText = el('text', {
-    x: 4 * scale,
-    y: -3,
-    fill: '#FFF',
-    'font-size': labelFontSize,
-    'font-family': 'Press Start 2P, monospace',
-    'text-anchor': 'middle',
-    'stroke': '#000',
-    'stroke-width': 1,
-    'paint-order': 'stroke',
-  });
-  nickText.textContent = nick;
-  g.appendChild(nickText);
-
-  // Timer state below feet
-  const stateFontSize = slot.row === 'back' ? 6 : 7;
-  const stateText = el('text', {
-    x: 4 * scale,
-    y: bodyH + 10,
-    fill: '#FFD700',
-    'font-size': stateFontSize,
-    'font-family': 'Press Start 2P, monospace',
-    'text-anchor': 'middle',
-    'stroke': '#000',
-    'stroke-width': 1,
-    'paint-order': 'stroke',
-  });
-  if (isFocus) {
-    const mins = Math.floor((user.remainingSec || 0) / 60);
-    const secs = (user.remainingSec || 0) % 60;
-    stateText.textContent = `${String(mins).padStart(2,'0')}:${String(secs).padStart(2,'0')}`;
-    stateText.setAttribute('fill', '#8DB360');
-  } else if (isBreak) {
-    stateText.textContent = 'BREAK';
-    stateText.setAttribute('fill', '#88BBFF');
-  } else {
-    stateText.textContent = 'IDLE';
-    stateText.setAttribute('fill', '#888');
+  // ── Tomato harvest count below the feet ──
+  //    Replaces the old session timer. Shows 🍅 + integer count of
+  //    focus sessions completed today. Hidden when 0 so fresh users
+  //    don't show "🍅 0" which feels sad.
+  const tomatoes = user.tomatoesToday || 0;
+  if (tomatoes > 0) {
+    const harvestSize = slot.row === 'back' ? 10 : (slot.row === 'mid' ? 12 : 14);
+    const harvestText = el('text', {
+      x: 4 * scale,
+      y: bodyH + harvestSize + 2,
+      'font-size': harvestSize,
+      'font-family': '"Apple Color Emoji", "Segoe UI Emoji", Press Start 2P, monospace',
+      'text-anchor': 'middle',
+      'fill': '#FFD166',
+      'stroke': '#000',
+      'stroke-width': 2,
+      'paint-order': 'stroke',
+    });
+    harvestText.textContent = `🍅${tomatoes}`;
+    g.appendChild(harvestText);
   }
-  g.appendChild(stateText);
-
-  // Theme color dot just above the nickname
-  const themeColor = (THEMES[user.theme] && THEMES[user.theme].oreColor) || C.tomatoRed;
-  rect(4 * scale - 2, -11, 4, 4, themeColor, g);
 
   parent.appendChild(g);
 }
