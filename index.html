@@ -2488,11 +2488,10 @@ function triggerCelebration() {
     contributionPixels.length = 0;
     if (contributionPixelsG) contributionPixelsG.innerHTML = '';
     // Rebuild the grid (mountain may have grown!) and shuffle for
-    // a fresh coverage pattern. Seed a small number so the mountain
-    // isn't totally naked.
+    // a fresh coverage pattern. Mountain starts clean — every pixel
+    // must be earned through completed tomatoes.
     mountainGrid = buildMountainGrid();
     gridFillIndex = 0;
-    seedInitialContributionPixels(80);
     celebrationActive = false;
   }, 4500);
 }
@@ -4736,12 +4735,10 @@ buildScene();
 // when we have no live users yet, so the scene never looks broken.
 renderRemoteUsers();
 renderMountainBadge();
-// Build the grid-based coverage map and seed a sprinkle of pre-
-// existing contribution pixels so new visitors land on a mountain
-// that already looks lived-in.
+// Build the grid-based coverage map. Mountain starts clean — every
+// pixel must be earned through completed tomatoes. No fake seed.
 mountainGrid = buildMountainGrid();
 gridFillIndex = 0;
-seedInitialContributionPixels(250);
 renderDailyStats();
 renderSessionLog();
 buildThemePicker();
