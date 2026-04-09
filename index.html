@@ -609,9 +609,7 @@ body[data-layout="companion"] .session-indicator { font-size: 9px; }
       <!-- Legacy verbose social-proof element kept hidden (other code
            still calls updateSocialProof which now writes to statusPills). -->
       <div class="social-proof" id="socialProof" style="display:none"></div>
-      <div class="task-input-wrap">
-        <input class="task-input" id="taskInput" placeholder="What are you working on?" maxlength="50">
-      </div>
+      <!-- task input removed — user found it unnecessary clutter -->
       <div class="controls">
         <button class="mc-btn primary" id="startBtn">START</button>
         <button class="mc-btn" id="skipBtn">SKIP</button>
@@ -660,15 +658,7 @@ body[data-layout="companion"] .session-indicator { font-size: 9px; }
           <button class="mc-toggle share-btn" id="shareBtn" onclick="shareHarvest()">📣 SHARE TODAY'S HARVEST</button>
         </div>
 
-        <!-- Session log — moved in from its own collapsible. Always
-             expanded when the parent details panel is open. -->
-        <div class="drawer-section-label">SESSION LOG</div>
-        <div class="session-log open" id="sessionLog">
-          <div class="session-log-inner" id="sessionLogInner"></div>
-        </div>
-
-        <!-- Settings — moved in from the separate drawer. All toggle
-             buttons, theme picker, and name editor live here now. -->
+        <!-- Settings — toggle buttons + theme picker only. -->
         <div class="drawer-section-label">SETTINGS</div>
         <div class="settings-drawer open" id="settingsDrawer">
           <div class="drawer-toggles">
@@ -679,12 +669,6 @@ body[data-layout="companion"] .session-indicator { font-size: 9px; }
           </div>
           <div class="drawer-section-label">ORE THEME</div>
           <div class="drawer-theme-picker" id="themePicker"></div>
-          <div class="drawer-section-label">YOUR NAME (visible to others)</div>
-          <div class="drawer-nick-wrap">
-            <input type="text" id="nickInput" class="drawer-nick-input" maxlength="20"
-                   placeholder="guest_xxxx" autocomplete="off">
-            <span class="drawer-nick-hint" id="nickHint"></span>
-          </div>
         </div>
       </div>
     </div>
@@ -4369,6 +4353,7 @@ function hideLofiPlayer() {
 // ═══════════════════════════════════════════
 function renderSessionLog() {
   const container = document.getElementById('sessionLogInner');
+  if (!container) return;  // element removed from DOM
   const d = loadDaily();
   if (!d.log || d.log.length === 0) {
     container.innerHTML = '<div class="log-empty">No sessions yet today</div>';
