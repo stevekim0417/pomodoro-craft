@@ -968,14 +968,17 @@ function recordSession(type, minutes) {
       nick: currentNick,
       theme: currentThemeId,
     });
-    // 🍅 One tomato earned → one permanent pixel on the mountain grid.
-    // This is the ONLY way grid cells get filled locally — dig-time
-    // particles are temporary. The pixel arcs from Steve to the
-    // mountain with a satisfying landing.
+    // 🍅 One tomato earned → 10 permanent pixels on the mountain grid.
+    // Staggered arcs from Steve to the mountain for a satisfying
+    // "burst reward" feel. This is the ONLY way grid cells get
+    // filled locally — dig-time particles are temporary.
     const myColor = colorForNick(currentNick);
-    setTimeout(() => {
-      flingContributionPixel(MAIN_STEVE_X + 4*P, GROUND_Y - 8*P, myColor);
-    }, 1200);  // slight delay after the big flyContributionBlock
+    const PIXELS_PER_TOMATO = 10;
+    for (let pi = 0; pi < PIXELS_PER_TOMATO; pi++) {
+      setTimeout(() => {
+        flingContributionPixel(MAIN_STEVE_X + 4*P, GROUND_Y - 8*P, myColor);
+      }, 1200 + pi * 150);
+    }
   }
 
   renderDailyStats();
@@ -3380,9 +3383,9 @@ function tickDemoUsers() {
         u.totalSec = 300;
         u.tomatoesToday = (u.tomatoesToday || 0) + 1;
         modeChanged = true;
-        // One tomato earned → one permanent pixel on the mountain.
+        // One tomato earned → 10 permanent pixels on the mountain.
         if (typeof addRemoteContributionBurst === 'function') {
-          addRemoteContributionBurst(u.nick, 1);
+          addRemoteContributionBurst(u.nick, 10);
         }
       }
     } else if (u.timerMode === 'break' || u.timerMode === 'longbreak') {
@@ -3525,9 +3528,9 @@ function connectPresence() {
             // contributing user's slot (if we can find it).
             if (msg.session && delta > 0) {
               flyContributionBlock(msg.session);
-              // One tomato earned by a remote user → one permanent pixel
+              // One tomato earned by a remote user → 10 permanent pixels
               // arcing from their character to the mountain.
-              addRemoteContributionBurst(msg.session.nick, 1);
+              addRemoteContributionBurst(msg.session.nick, 10);
             }
           }
           renderLiveFeed();
