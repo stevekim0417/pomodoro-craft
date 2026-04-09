@@ -939,7 +939,8 @@ function recordSession(type, minutes) {
   // Add to session log
   const now = new Date();
   const timeStr = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
-  const task = document.getElementById('taskInput').value.trim();
+  const taskEl = document.getElementById('taskInput');
+  const task = taskEl ? taskEl.value.trim() : '';
   daily.log.push({ time: timeStr, type, duration: minutes, task: task || '' });
   saveDaily(daily);
 
@@ -4666,8 +4667,9 @@ function toggleSettingsDrawer() {
 // KEYBOARD
 // ═══════════════════════════════════════════
 document.addEventListener('keydown', e => {
-  // Don't trigger shortcuts when typing in task input
-  if (document.activeElement === document.getElementById('taskInput')) {
+  // Don't trigger shortcuts when typing in an input field
+  const taskInput = document.getElementById('taskInput');
+  if (taskInput && document.activeElement === taskInput) {
     if (e.code === 'Enter') { e.preventDefault(); startTimer(); }
     return;
   }
