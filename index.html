@@ -292,6 +292,81 @@ body {
   100% { text-shadow: 1px 1px 0 #000, 0 0 4px rgba(255, 165, 0, 0.6); }
 }
 
+/* ── Status pills row — the consolidated essentials display.
+   Three pieces of always-visible info: live count, today's
+   tomatoes, current streak. Replaces the old verbose
+   social-proof + daily-stats area for the default view. ── */
+.status-pills {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 6px 0 8px;
+}
+.status-pill {
+  display: inline-block;
+  padding: 5px 9px;
+  background: rgba(0, 0, 0, 0.4);
+  border: 2px solid #1a1a1a;
+  border-top-color: #5a5a5a;
+  border-left-color: #5a5a5a;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 8px;
+  color: #FFFFFF;
+  text-shadow: 1px 1px 0 #000;
+  letter-spacing: 1px;
+  white-space: nowrap;
+  image-rendering: pixelated;
+}
+.status-pill .icon { margin-right: 3px; }
+.status-pill.live    { color: #8DB360; }
+.status-pill.harvest { color: #FFD166; }
+.status-pill.streak  { color: #FF9933; animation: streakPulse 2s infinite alternate; }
+[data-mode="break"] .status-pill.live { color: #88BBFF; }
+.status-pill.alone {
+  color: #FFA500;
+  animation: aloneGlow 3s infinite alternate;
+}
+
+/* ── Details panel toggle — Minecraft-style chunky button ── */
+.details-toggle {
+  display: block;
+  margin: 12px auto 8px;
+  padding: 8px 18px;
+  background: #6B6B6B;
+  border: 3px solid #1a1a1a;
+  border-top-color: #9a9a9a;
+  border-left-color: #9a9a9a;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 9px;
+  color: #FFFFFF;
+  text-shadow: 1px 1px 0 #000;
+  letter-spacing: 1px;
+  cursor: pointer;
+  transition: background 0.12s;
+  image-rendering: pixelated;
+}
+.details-toggle:hover { background: #7B7B7B; }
+.details-toggle:active {
+  border-top-color: #1a1a1a;
+  border-left-color: #1a1a1a;
+  border-right-color: #9a9a9a;
+  border-bottom-color: #9a9a9a;
+}
+
+/* ── Collapsible details panel — slides in/out smoothly ── */
+.details-panel {
+  overflow: hidden;
+  max-height: 3000px;
+  transition: max-height 0.35s ease-in-out, opacity 0.25s;
+  opacity: 1;
+}
+.details-panel.collapsed {
+  max-height: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
 /* Live feed ticker — last N sessions from other users */
 .live-feed {
   max-height: 0; overflow: hidden;
@@ -527,9 +602,13 @@ body[data-layout="companion"] .session-indicator { font-size: 9px; }
         <div class="timer-display" id="timerDisplay">25:00</div>
         <div class="progress-bar" id="progressBar"></div>
       </div>
-      <div class="social-proof" id="socialProof">🌱 ··· focusing now</div>
-      <div class="mountain-badge" id="mountainBadge">🏔️ Building the mountain...</div>
-      <div class="live-feed" id="liveFeed"></div>
+      <!-- Three-pill always-visible status bar: live count, today's
+           tomatoes, current streak. Replaces the old verbose social
+           proof + harvest + streak rows. -->
+      <div class="status-pills" id="statusPills"></div>
+      <!-- Legacy verbose social-proof element kept hidden (other code
+           still calls updateSocialProof which now writes to statusPills). -->
+      <div class="social-proof" id="socialProof" style="display:none"></div>
       <div class="task-input-wrap">
         <input class="task-input" id="taskInput" placeholder="What are you working on?" maxlength="50">
       </div>
@@ -538,37 +617,48 @@ body[data-layout="companion"] .session-indicator { font-size: 9px; }
         <button class="mc-btn" id="skipBtn">SKIP</button>
         <button class="mc-btn danger" id="resetBtn">RESET</button>
       </div>
-      <div class="settings">
-        <div class="setting">
-          <div class="setting-label">FOCUS</div>
-          <div class="setting-controls">
-            <button class="mc-btn-sm" onclick="adjustTime('focus',-5)">-</button>
-            <span class="value" id="focusValue">25</span>
-            <button class="mc-btn-sm" onclick="adjustTime('focus',5)">+</button>
+      <!-- Reveal-on-click button for everything below the essentials. -->
+      <button class="details-toggle" id="detailsToggle" onclick="toggleDetails()">
+        📊 STATS &amp; SETTINGS ▼
+      </button>
+      <!-- Collapsed by default. Contains: mountain meta, FOCUS/BREAK
+           /LONG controls, hotbar, full daily stats, share button,
+           live feed, lofi player. -->
+      <div class="details-panel collapsed" id="detailsPanel">
+        <div class="mountain-badge" id="mountainBadge">🏔️ Building the mountain...</div>
+        <div class="live-feed" id="liveFeed"></div>
+        <div class="settings">
+          <div class="setting">
+            <div class="setting-label">FOCUS</div>
+            <div class="setting-controls">
+              <button class="mc-btn-sm" onclick="adjustTime('focus',-5)">-</button>
+              <span class="value" id="focusValue">25</span>
+              <button class="mc-btn-sm" onclick="adjustTime('focus',5)">+</button>
+            </div>
+          </div>
+          <div class="setting">
+            <div class="setting-label">BREAK</div>
+            <div class="setting-controls">
+              <button class="mc-btn-sm" onclick="adjustTime('break',-1)">-</button>
+              <span class="value" id="breakValue">5</span>
+              <button class="mc-btn-sm" onclick="adjustTime('break',1)">+</button>
+            </div>
+          </div>
+          <div class="setting">
+            <div class="setting-label">LONG</div>
+            <div class="setting-controls">
+              <button class="mc-btn-sm" onclick="adjustTime('long',-5)">-</button>
+              <span class="value" id="longBreakValue">15</span>
+              <button class="mc-btn-sm" onclick="adjustTime('long',5)">+</button>
+            </div>
           </div>
         </div>
-        <div class="setting">
-          <div class="setting-label">BREAK</div>
-          <div class="setting-controls">
-            <button class="mc-btn-sm" onclick="adjustTime('break',-1)">-</button>
-            <span class="value" id="breakValue">5</span>
-            <button class="mc-btn-sm" onclick="adjustTime('break',1)">+</button>
-          </div>
+        <div class="lofi-player" id="lofiPlayer"></div>
+        <div class="hotbar" id="hotbar"></div>
+        <div class="daily-stats" id="dailyStats"></div>
+        <div class="share-wrap">
+          <button class="mc-toggle share-btn" id="shareBtn" onclick="shareHarvest()">📣 SHARE TODAY'S HARVEST</button>
         </div>
-        <div class="setting">
-          <div class="setting-label">LONG</div>
-          <div class="setting-controls">
-            <button class="mc-btn-sm" onclick="adjustTime('long',-5)">-</button>
-            <span class="value" id="longBreakValue">15</span>
-            <button class="mc-btn-sm" onclick="adjustTime('long',5)">+</button>
-          </div>
-        </div>
-      </div>
-      <div class="lofi-player" id="lofiPlayer"></div>
-      <div class="hotbar" id="hotbar"></div>
-      <div class="daily-stats" id="dailyStats"></div>
-      <div class="share-wrap">
-        <button class="mc-toggle share-btn" id="shareBtn" onclick="shareHarvest()">📣 SHARE TODAY'S HARVEST</button>
       </div>
       <div class="log-toggle" id="logToggle" onclick="toggleSessionLog()">SESSION LOG ▼</div>
       <div class="session-log" id="sessionLog">
@@ -857,6 +947,7 @@ function recordSession(type, minutes) {
     daily.sessions++;
     daily.focusMin += minutes;
     if (typeof renderMyHarvestCount === 'function') renderMyHarvestCount();
+    if (typeof updateSocialProof === 'function') updateSocialProof();
   } else {
     daily.breakMin += minutes;
   }
@@ -3259,42 +3350,56 @@ function disconnectPresence() {
 }
 
 function updateSocialProof() {
-  const el = document.getElementById('socialProof');
-  if (!el) return;
+  // The new compact status-pills bar replaces the verbose
+  // social-proof sentence. Three pills:
+  //   • LIVE   — how many people are focusing right now
+  //   • TODAY  — how many tomatoes the local user earned today
+  //   • STREAK — current daily streak (only shown when > 0)
+  // Real backend data takes precedence; falls back to the time-of-
+  // day estimator when offline so the app doesn't feel dead.
+  const pillsEl = document.getElementById('statusPills');
+  if (!pillsEl) return;
 
-  // Real backend data takes precedence — otherwise fall back to the
-  // time-of-day estimate so the app doesn't feel dead during local use.
   const isReal = liveOnlineCount != null;
   const n = isReal ? liveOnlineCount : estimateFocusersNow();
+  const todayTomatoes = (daily && daily.sessions) || 0;
+  const streakInfo = (typeof loadStreak === 'function') ? (loadStreak() || {}) : {};
+  const streakDays = streakInfo.current || 0;
 
-  let label;
+  // LIVE pill — text changes for the "alone" edge case so it
+  // celebrates being first instead of feeling empty.
+  let liveText, isAlone = false;
   if (isReal) {
-    // Honest messages tuned for the low-traffic reality: most of the
-    // time the user will be alone (n=1). The copy celebrates rather
-    // than apologizes for that, and ramps up naturally as more
-    // people join.
-    if (n === 0) {
-      // Shouldn't happen (we count ourselves) but cover the edge case
-      label = '🌱 Be the first one focusing today';
-    } else if (n === 1) {
-      // It's just the user themselves
-      label = `🌱 You're focused alone · be the first today ✨`;
-    } else if (n === 2) {
-      // Magical moment — exactly one other person is here!
-      label = `🌱 You're focused with 1 other right now · LIVE`;
-    } else if (n <= 5) {
-      label = `🌱 You're focused with ${n - 1} others right now · LIVE`;
+    if (n <= 1) {
+      liveText = '🟢 ALONE · BE FIRST';
+      isAlone = true;
     } else {
-      label = `🌱 Join ${n - 1} others focusing right now · LIVE`;
+      liveText = `🟢 ${n} FOCUSING`;
     }
   } else {
-    // Solo/offline mode — use the fake estimate
-    label = `🌱 Join ${n} others focusing right now`;
+    liveText = `🟢 ~${n} FOCUSING`;
   }
-  el.textContent = label;
-  el.classList.toggle('live', isReal);
-  // Extra highlight for the "alone" state so it feels intentional
-  el.classList.toggle('alone', isReal && n <= 1);
+
+  let html = `<span class="status-pill live${isAlone ? ' alone' : ''}">${liveText}</span>`;
+  html += `<span class="status-pill harvest">🍅 ${todayTomatoes} TODAY</span>`;
+  if (streakDays > 0) {
+    html += `<span class="status-pill streak">🔥 ${streakDays}D STREAK</span>`;
+  }
+  pillsEl.innerHTML = html;
+}
+
+// Toggle the collapsible details panel containing FOCUS/BREAK/LONG
+// controls, hotbar, daily stats, lifetime stats, share button, etc.
+// The arrow flips ▼ ↔ ▲ to telegraph state.
+function toggleDetails() {
+  const panel = document.getElementById('detailsPanel');
+  const toggle = document.getElementById('detailsToggle');
+  if (!panel || !toggle) return;
+  panel.classList.toggle('collapsed');
+  const isOpen = !panel.classList.contains('collapsed');
+  toggle.innerHTML = isOpen
+    ? '📊 STATS &amp; SETTINGS ▲'
+    : '📊 STATS &amp; SETTINGS ▼';
 }
 
 // ═══════════════════════════════════════════
