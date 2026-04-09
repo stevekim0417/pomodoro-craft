@@ -1540,14 +1540,16 @@ function buildScene() {
   renderSprite(CHICKEN_R, CHICKEN_COLORS, 0, 0, 5, chickenG);
   breakLayerG.appendChild(chickenG);
 
-  // Steve (composite)
+  // Steve (composite) — uses myCharMap so the main user's hat color
+  // matches their nick-derived palette entry.
+  if (!myCharMap) myCharMap = buildMyCharMap();
   steveGroup = el('g');
   svg.appendChild(steveGroup);
   steveBodyG = el('g');
-  renderSprite(STEVE_BODY, CHAR, 0, 0, P, steveBodyG);
+  renderSprite(STEVE_BODY, myCharMap, 0, 0, P, steveBodyG);
   steveGroup.appendChild(steveBodyG);
   steveLegsG = el('g');
-  renderSprite(LEG_STAND, CHAR, 0, STEVE_BODY.length*P, P, steveLegsG);
+  renderSprite(LEG_STAND, myCharMap, 0, STEVE_BODY.length*P, P, steveLegsG);
   steveGroup.appendChild(steveLegsG);
   steveArmG = el('g', {opacity:0});
   renderSprite(PICK_HANDLE, PICK_COLORS, 0, 0, P, steveArmG);
@@ -1663,18 +1665,39 @@ function computeMountainLayers(globalBlocks) {
   return MOUNTAIN_MAX_LAYERS;
 }
 
+// Three-zone mountain palette — Townscaper-inspired vibrant but soft.
+// Each zone has: main body, dark shadow (right/sun-away side), and
+// highlight (left/sun-facing side + top edges).
 function mountainLayerColors(layerIndex, totalLayers) {
-  // Bottom third: earth tones
-  // Middle third: stone
-  // Top third: snow
-  const ratio = layerIndex / totalLayers;
-  if (ratio > 0.7) {
-    return { main: '#E8F0FA', shade: '#B0C4D8', highlight: '#FFFFFF' }; // snow
+  const ratio = layerIndex / Math.max(1, totalLayers - 1);
+  if (ratio > 0.75) {
+    // Snow zone — cool white-blue
+    return {
+      main:      '#EEF4FB',
+      shade:     '#B8CEE0',
+      darkShade: '#8FA5BC',
+      highlight: '#FFFFFF',
+      topEdge:   '#FFFFFF',
+    };
   }
-  if (ratio > 0.35) {
-    return { main: '#808080', shade: '#606060', highlight: '#A0A0A0' }; // stone
+  if (ratio > 0.42) {
+    // Stone zone — warm brownish gray (not plain gray)
+    return {
+      main:      '#8A7A68',
+      shade:     '#685A4A',
+      darkShade: '#4A3E32',
+      highlight: '#A89880',
+      topEdge:   '#B0A090',
+    };
   }
-  return { main: '#5B8731', shade: '#3C5A1E', highlight: '#8DB360' };   // grass/dirt
+  // Grass zone — vibrant cozy green
+  return {
+    main:      '#6CA83E',
+    shade:     '#446B22',
+    darkShade: '#2D4A13',
+    highlight: '#8BD04C',
+    topEdge:   '#A4E466',
+  };
 }
 
 function renderMountain() {
@@ -1682,12 +1705,9 @@ function renderMountain() {
   mountainG.innerHTML = '';
 
   const layers = computeMountainLayers(globalMountainBlocks);
+  const baseBlocks = layers * 2 + 3;  // odd number for symmetry
 
-  // Widest layer at the bottom, each layer above is narrower by 2 blocks
-  // (one block off each side). Block height = MOUNTAIN_LAYER_H (16px),
-  // block width = MOUNTAIN_BLOCK_W (20px).
-  const baseBlocks = layers * 2 + 3;  // odd number so it's symmetric
-
+  // ── 1. Draw main mountain body (back to front = top to bottom) ──
   for (let i = 0; i < layers; i++) {
     const blocksThisLayer = baseBlocks - (i * 2);
     if (blocksThisLayer <= 0) break;
@@ -1696,41 +1716,148 @@ function renderMountain() {
     const layerX = MOUNTAIN_CENTER_X - layerW / 2;
     const layerY = MOUNTAIN_BASE_Y - (i + 1) * MOUNTAIN_LAYER_H;
 
-    const { main, shade, highlight } = mountainLayerColors(i, layers);
+    const c = mountainLayerColors(i, layers);
 
     // Main body fill
-    rect(layerX, layerY, layerW, MOUNTAIN_LAYER_H, main, mountainG);
+    rect(layerX, layerY, layerW, MOUNTAIN_LAYER_H, c.main, mountainG);
 
-    // Left face shading (darker left edge) — gives isometric feel
-    rect(layerX, layerY, 4, MOUNTAIN_LAYER_H, shade, mountainG);
-    rect(layerX + 4, layerY, 2, MOUNTAIN_LAYER_H, shade, mountainG);
+    // Sun-facing (LEFT) highlight — soft lighter gradient
+    rect(layerX, layerY, 6, MOUNTAIN_LAYER_H, c.highlight, mountainG);
+    rect(layerX + 6, layerY, 2, MOUNTAIN_LAYER_H - 2, c.highlight, mountainG);
 
-    // Right highlight edge (lighter right side)
-    rect(layerX + layerW - 4, layerY, 4, MOUNTAIN_LAYER_H, highlight, mountainG);
+    // Sun-away (RIGHT) shadow — gradient darker
+    rect(layerX + layerW - 6, layerY, 6, MOUNTAIN_LAYER_H, c.shade, mountainG);
+    rect(layerX + layerW - 3, layerY, 3, MOUNTAIN_LAYER_H, c.darkShade, mountainG);
 
-    // Top edge highlight (1px lighter strip)
-    rect(layerX, layerY, layerW, 2, highlight, mountainG);
+    // Top highlight edge — gives volume
+    rect(layerX, layerY, layerW, 2, c.topEdge, mountainG);
 
-    // Scattered "block texture" dots for pixel feel
+    // ── Texture dots — scattered shadow + highlight pixels ──
+    const dotSeed = i * 7;
     for (let bx = 0; bx < blocksThisLayer; bx++) {
-      const dx = layerX + bx * MOUNTAIN_BLOCK_W + MOUNTAIN_BLOCK_W / 2;
-      // Small shadow dot at block center for depth
-      if ((bx + i) % 3 === 0) {
-        rect(dx - 1, layerY + MOUNTAIN_LAYER_H - 4, 2, 2, shade, mountainG);
+      const cx = layerX + bx * MOUNTAIN_BLOCK_W;
+      // Shadow dot (pseudo-random via hash)
+      if ((bx * 3 + dotSeed) % 5 === 0) {
+        rect(cx + 8, layerY + 9, 2, 2, c.shade, mountainG);
+      }
+      if ((bx * 5 + dotSeed) % 7 === 0) {
+        rect(cx + 14, layerY + 6, 2, 2, c.darkShade, mountainG);
+      }
+      // Highlight dot
+      if ((bx + dotSeed) % 4 === 0) {
+        rect(cx + 4, layerY + 5, 2, 2, c.highlight, mountainG);
       }
     }
   }
 
-  // Peak flag — adds a playful cherry on top when the mountain is big
-  if (layers >= 10) {
-    const topY = MOUNTAIN_BASE_Y - layers * MOUNTAIN_LAYER_H - 20;
+  // ── 2. Trees at the bottom 1-2 layers (grass zone) ──
+  if (layers >= 3) {
+    // Bottom layer trees
+    const bottomBlocks = baseBlocks;
+    const bottomW = bottomBlocks * MOUNTAIN_BLOCK_W;
+    const bottomX = MOUNTAIN_CENTER_X - bottomW / 2;
+    const bottomY = MOUNTAIN_BASE_Y - MOUNTAIN_LAYER_H;
+
+    // Scatter small pine trees on the bottom layer
+    for (let t = 1; t < bottomBlocks - 1; t += 2) {
+      if ((t + layers) % 3 === 1) continue;  // some gaps
+      const tx = bottomX + t * MOUNTAIN_BLOCK_W + 6;
+      const ty = bottomY - 2;
+      drawMountainTree(mountainG, tx, ty);
+    }
+
+    // Second layer trees (sparse)
+    if (layers >= 4) {
+      const secondBlocks = baseBlocks - 2;
+      const secondW = secondBlocks * MOUNTAIN_BLOCK_W;
+      const secondX = MOUNTAIN_CENTER_X - secondW / 2;
+      const secondY = MOUNTAIN_BASE_Y - 2 * MOUNTAIN_LAYER_H;
+      for (let t = 2; t < secondBlocks - 2; t += 4) {
+        const tx = secondX + t * MOUNTAIN_BLOCK_W + 6;
+        drawMountainTree(mountainG, tx, secondY - 2);
+      }
+    }
+  }
+
+  // ── 3. Snow cap on the top layer(s) — wavy drift shape ──
+  if (layers >= 4) {
+    const topIdx = layers - 1;
+    const topBlocks = baseBlocks - topIdx * 2;
+    const topW = topBlocks * MOUNTAIN_BLOCK_W;
+    const topX = MOUNTAIN_CENTER_X - topW / 2;
+    const topY = MOUNTAIN_BASE_Y - (topIdx + 1) * MOUNTAIN_LAYER_H;
+
+    // Wavy snow drift — 4 or 5 undulations
+    for (let x = 0; x < topW; x += 4) {
+      const waveH = Math.round(3 + Math.sin(x * 0.18) * 3 + Math.cos(x * 0.4) * 1.5);
+      // White snow body
+      rect(topX + x, topY - waveH, 4, waveH + 2, '#FFFFFF', mountainG);
+      // Blue shadow under the peaks
+      rect(topX + x + 2, topY - waveH + 1, 2, 2, '#E0EAF5', mountainG);
+    }
+  }
+
+  // ── 4. Rocky details on stone layers (middle zone) ──
+  if (layers >= 6) {
+    const stoneStartLayer = Math.floor(layers * 0.42);
+    const stoneEndLayer   = Math.floor(layers * 0.75);
+    for (let i = stoneStartLayer; i < stoneEndLayer; i++) {
+      const blocksThisLayer = baseBlocks - (i * 2);
+      if (blocksThisLayer <= 0) break;
+      const layerW = blocksThisLayer * MOUNTAIN_BLOCK_W;
+      const layerX = MOUNTAIN_CENTER_X - layerW / 2;
+      const layerY = MOUNTAIN_BASE_Y - (i + 1) * MOUNTAIN_LAYER_H;
+      // A few rocky chunks
+      for (let r = 0; r < 2; r++) {
+        const rx = layerX + 8 + ((i * 13 + r * 37) % Math.max(1, layerW - 20));
+        const ry = layerY + 3;
+        // Small 3x3 rock
+        rect(rx,     ry,     4, 3, '#6B5A48', mountainG);
+        rect(rx + 1, ry + 3, 4, 2, '#8A7A68', mountainG);
+        rect(rx,     ry + 3, 1, 2, '#4A3E32', mountainG);
+      }
+    }
+  }
+
+  // ── 5. Peak flag — red triumphant banner when big enough ──
+  if (layers >= 8) {
+    const topY = MOUNTAIN_BASE_Y - layers * MOUNTAIN_LAYER_H - 22;
     const flagX = MOUNTAIN_CENTER_X;
     // Pole
-    rect(flagX, topY, 2, 20, '#8B7355', mountainG);
+    rect(flagX, topY, 2, 22, '#6B4423', mountainG);
+    rect(flagX + 1, topY, 1, 22, '#8B5A2B', mountainG);
     // Flag body
-    rect(flagX + 2, topY, 14, 10, '#E63946', mountainG);
-    rect(flagX + 2, topY + 1, 2, 8, '#B02A37', mountainG);
+    rect(flagX + 2, topY, 18, 11, '#E63946', mountainG);
+    rect(flagX + 2, topY + 1, 2, 9, '#B02A37', mountainG);
+    rect(flagX + 2, topY, 18, 1, '#FF6B6B', mountainG);   // top highlight
+    // Tiny white star on flag
+    rect(flagX + 9, topY + 4, 2, 1, '#FFFFFF', mountainG);
+    rect(flagX + 8, topY + 5, 4, 1, '#FFFFFF', mountainG);
+    rect(flagX + 9, topY + 6, 2, 1, '#FFFFFF', mountainG);
   }
+
+  // ── 6. Atmospheric cloud ring near the peak (very tall mountains) ──
+  if (layers >= 12) {
+    const cloudY = MOUNTAIN_BASE_Y - (layers - 2) * MOUNTAIN_LAYER_H;
+    // Soft white puffs floating near the upper third
+    [-60, -30, 40, 70].forEach((dx, i) => {
+      const cx = MOUNTAIN_CENTER_X + dx;
+      rect(cx, cloudY + (i % 2) * 4, 14, 3, '#FFFFFF', mountainG);
+      rect(cx + 2, cloudY + 3 + (i % 2) * 4, 10, 2, '#E8F0FA', mountainG);
+    });
+  }
+}
+
+// Small pine tree on the mountain slopes — 6x10 pixel
+function drawMountainTree(parent, x, baseY) {
+  // Trunk
+  rect(x + 2, baseY - 3, 2, 3, '#5A3A10', parent);
+  // Leaves — layered triangles
+  rect(x,     baseY - 6, 6, 2, '#2D5A27', parent);
+  rect(x + 1, baseY - 8, 4, 2, '#3C6A33', parent);
+  rect(x + 2, baseY - 10, 2, 2, '#4A8A3A', parent);
+  // Highlight on top
+  rect(x + 2, baseY - 10, 1, 1, '#6EA038', parent);
 }
 
 // Format a big number with comma separators
@@ -1876,6 +2003,7 @@ function updateSteveSprite(pose) {
   currentPose = pose;
   steveBodyG.innerHTML = '';
   steveLegsG.innerHTML = '';
+  const myMap = myCharMap || CHAR;
   if (pose === 'sit' || pose === 'stretch') {
     const body = pose === 'stretch' ? [
       '..hHHHh.', '.HHHHHHH', '.HSSSSsH', '..SESES.',
@@ -1883,15 +2011,15 @@ function updateSteveSprite(pose) {
       'S.TTTTT.S', '.STTTTS.',
       '..TTTT..', '..tTTt..',
     ] : STEVE_SIT_BODY;
-    renderSprite(body, CHAR, 0, 0, P, steveBodyG);
-    renderSprite(STEVE_SIT_LEGS, CHAR, 0, body.length*P, P, steveLegsG);
+    renderSprite(body, myMap, 0, 0, P, steveBodyG);
+    renderSprite(STEVE_SIT_LEGS, myMap, 0, body.length*P, P, steveLegsG);
   } else if (pose === 'blink') {
-    renderSprite(STEVE_BLINK_BODY, CHAR, 0, 0, P, steveBodyG);
-    renderSprite(LEG_STAND, CHAR, 0, STEVE_BODY.length*P, P, steveLegsG);
+    renderSprite(STEVE_BLINK_BODY, myMap, 0, 0, P, steveBodyG);
+    renderSprite(LEG_STAND, myMap, 0, STEVE_BODY.length*P, P, steveLegsG);
   } else {
-    renderSprite(STEVE_BODY, CHAR, 0, 0, P, steveBodyG);
+    renderSprite(STEVE_BODY, myMap, 0, 0, P, steveBodyG);
     const legData = pose==='walk1'?LEG_WALK1:pose==='walk2'?LEG_WALK2:LEG_STAND;
-    renderSprite(legData, CHAR, 0, STEVE_BODY.length*P, P, steveLegsG);
+    renderSprite(legData, myMap, 0, STEVE_BODY.length*P, P, steveLegsG);
   }
 }
 
@@ -2742,6 +2870,59 @@ function countryCodeToFlag(code) {
   }
 }
 
+// ═══════════════════════════════════════════
+// HAT COLOR PALETTE — per-user cap tint
+// ─────────────────────────────────────────
+// Each user gets a deterministic hat color based on their nick, so
+// visiting the same person multiple times shows them in the same
+// color. 12 distinct hats cover 99% of visible combinations.
+//
+// Color keys used by STEVE_BODY sprite:
+//   J = hat dome main color
+//   j = hat visor / darker trim
+//   K = white logo / band
+// ═══════════════════════════════════════════
+const HAT_PALETTE = [
+  { J: '#D83030', j: '#7A1515', K: '#FFFFFF' }, // 0 — red (Mario)
+  { J: '#3D6DCC', j: '#1E4A8E', K: '#FFFFFF' }, // 1 — blue (baseball)
+  { J: '#3A8B3A', j: '#1F4A1F', K: '#FFFFFF' }, // 2 — forest green
+  { J: '#F1C40F', j: '#B7950B', K: '#000000' }, // 3 — yellow
+  { J: '#8E44AD', j: '#5A2676', K: '#FFFFFF' }, // 4 — purple
+  { J: '#E67E22', j: '#9E4A05', K: '#FFFFFF' }, // 5 — orange
+  { J: '#EC407A', j: '#AD1457', K: '#FFFFFF' }, // 6 — pink
+  { J: '#26A69A', j: '#00766C', K: '#FFFFFF' }, // 7 — teal
+  { J: '#5D4037', j: '#2E1C18', K: '#FFE082' }, // 8 — brown (cowboy)
+  { J: '#455A64', j: '#1C313A', K: '#FFFFFF' }, // 9 — slate
+  { J: '#000000', j: '#202020', K: '#FFFFFF' }, //10 — black
+  { J: '#F4F4F4', j: '#A0A0A0', K: '#E63946' }, //11 — white
+];
+
+// Deterministic hash → pick a hat index from nick.
+// Djb2-like hash — simple, fast, stable across runs.
+function hatIndexForNick(nick) {
+  const seed = String(nick || '').trim() || 'guest';
+  let hash = 5381;
+  for (let i = 0; i < seed.length; i++) {
+    hash = ((hash << 5) + hash + seed.charCodeAt(i)) | 0;
+  }
+  return Math.abs(hash) % HAT_PALETTE.length;
+}
+
+// Build a CHAR map for a given user (overrides hat colors).
+// Falls back to the default palette[0] if nick is missing.
+function charForUser(user) {
+  const hat = HAT_PALETTE[hatIndexForNick(user && user.nick)] || HAT_PALETTE[0];
+  return Object.assign({}, CHAR, { J: hat.J, j: hat.j, K: hat.K });
+}
+
+// The main user's CHAR map — rebuilt when currentNick changes so
+// the main Steve also gets a personalized hat color.
+function buildMyCharMap() {
+  const hat = HAT_PALETTE[hatIndexForNick(currentNick)] || HAT_PALETTE[0];
+  return Object.assign({}, CHAR, { J: hat.J, j: hat.j, K: hat.K });
+}
+let myCharMap = null;  // initialized after currentNick is loaded
+
 function renderRemoteUsers() {
   if (!remoteUsersG) return;
   remoteUsersG.innerHTML = '';
@@ -2793,13 +2974,16 @@ function drawRemoteSteveInSlot(parent, slot, user) {
   const isBreak = user.timerMode === 'break' || user.timerMode === 'longbreak';
   const isFocus = user.timerMode === 'focus';
 
+  // Per-user CHAR map with their unique hat color
+  const userChar = charForUser(user);
+
   // Body + legs (sit vs stand)
   if (isBreak) {
-    renderSprite(STEVE_SIT_BODY, CHAR, 0, 0, scale, g);
-    renderSprite(STEVE_SIT_LEGS, CHAR, 0, STEVE_SIT_BODY.length * scale, scale, g);
+    renderSprite(STEVE_SIT_BODY, userChar, 0, 0, scale, g);
+    renderSprite(STEVE_SIT_LEGS, userChar, 0, STEVE_SIT_BODY.length * scale, scale, g);
   } else {
-    renderSprite(STEVE_BODY, CHAR, 0, 0, scale, g);
-    renderSprite(LEG_STAND, CHAR, 0, STEVE_BODY.length * scale, scale, g);
+    renderSprite(STEVE_BODY, userChar, 0, 0, scale, g);
+    renderSprite(LEG_STAND, userChar, 0, STEVE_BODY.length * scale, scale, g);
   }
 
   // Focus mode: pickaxe beside the body (tilted -20°)
@@ -2824,10 +3008,23 @@ function drawRemoteSteveInSlot(parent, slot, user) {
     g.appendChild(zzz);
   }
 
-  // Flag + nickname above head — font scales with row
+  // ── Flag (BIG, separate from nickname) ──
   const flag = countryCodeToFlag(user.country);
+  const flagSize = slot.row === 'back' ? 14 : (slot.row === 'mid' ? 16 : 18);
+  if (flag) {
+    const flagText = el('text', {
+      x: 4 * scale,
+      y: -(scale * 3 + 8),  // sits above nickname
+      'font-size': flagSize,
+      'font-family': '"Apple Color Emoji", "Segoe UI Emoji", sans-serif',
+      'text-anchor': 'middle',
+    });
+    flagText.textContent = flag;
+    g.appendChild(flagText);
+  }
+
+  // ── Nickname below the flag, smaller ──
   const nick = (user.nick || 'guest').slice(0, 10);
-  const label = flag ? `${flag} ${nick}` : nick;
   const labelFontSize = slot.row === 'back' ? 6 : (slot.row === 'mid' ? 7 : 8);
   const nickText = el('text', {
     x: 4 * scale,
@@ -2840,7 +3037,7 @@ function drawRemoteSteveInSlot(parent, slot, user) {
     'stroke-width': 1,
     'paint-order': 'stroke',
   });
-  nickText.textContent = label;
+  nickText.textContent = nick;
   g.appendChild(nickText);
 
   // Timer state below feet
@@ -3621,6 +3818,9 @@ if (nickInput) {
     currentNick = saveNick(nickInput.value);
     nickInput.value = currentNick;
     if (before !== currentNick) {
+      // Rebuild our hat color map based on new nick, then repaint main Steve
+      myCharMap = buildMyCharMap();
+      updateSteveSprite(currentPose || 'stand');
       // Tell the server our new identity so other users see it
       sendPresenceMessage({
         type: 'hello',
