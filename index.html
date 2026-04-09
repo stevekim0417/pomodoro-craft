@@ -2460,6 +2460,99 @@ function triggerCelebration() {
   }, 4500);
 }
 
+// ═══════════════════════════════════════════
+// "MY CONTRIBUTION" HIGHLIGHT
+// ─────────────────────────────────────────
+// Triggered by tapping the 🍅 TODAY pill. Dims all other users'
+// pixels to 15% opacity and pulses the local user's pixels with a
+// bright glow. A count overlay floats on the mountain showing
+// "YOUR PIXELS: N / total". Restores after 3.5 seconds.
+// ═══════════════════════════════════════════
+let myContribShowActive = false;
+function showMyContribution() {
+  if (!contributionPixelsG || myContribShowActive || celebrationActive) return;
+  myContribShowActive = true;
+
+  const myColor = colorForNick(currentNick);
+  const myPixels = [];
+  const otherPixels = [];
+  for (const p of contributionPixels) {
+    if (p.color === myColor) myPixels.push(p);
+    else otherPixels.push(p);
+  }
+
+  // ── Dim everyone else ──
+  for (const p of otherPixels) {
+    if (p.el) p.el.setAttribute('opacity', '0.12');
+  }
+
+  // ── Pulse mine with a bright glow ──
+  for (const p of myPixels) {
+    if (!p.el) continue;
+    p.el.setAttribute('opacity', '1');
+    const cx = p.x + CONTRIBUTION_PIXEL_SIZE / 2;
+    const cy = p.y + CONTRIBUTION_PIXEL_SIZE / 2;
+    p.el.style.transformOrigin = `${cx}px ${cy}px`;
+    p.el.animate([
+      { transform: 'scale(1)',   filter: 'brightness(1)' },
+      { transform: 'scale(1.6)', filter: 'brightness(2.5)' },
+      { transform: 'scale(1)',   filter: 'brightness(1)' },
+    ], { duration: 500, iterations: 5, easing: 'ease-in-out' });
+    // White glow ring
+    const glow = rect(p.x - 2, p.y - 2, CONTRIBUTION_PIXEL_SIZE + 4, CONTRIBUTION_PIXEL_SIZE + 4,
+      '#FFFFFF', contributionPixelsG);
+    glow.setAttribute('opacity', '0');
+    glow.style.transformOrigin = `${cx}px ${cy}px`;
+    glow.animate([
+      { opacity: 0, transform: 'scale(0.8)' },
+      { opacity: 0.7, transform: 'scale(1.4)' },
+      { opacity: 0, transform: 'scale(1.8)' },
+    ], { duration: 800, iterations: 3, easing: 'ease-out' });
+    setTimeout(() => glow.remove(), 2500);
+  }
+
+  // ── Count overlay on the mountain ──
+  const pct = mountainGrid.length > 0
+    ? Math.round(myPixels.length / mountainGrid.length * 100) : 0;
+  const overlayG = el('g');
+  // Background pill for readability
+  const pillW = 280, pillH = 36;
+  const pillX = MOUNTAIN_CENTER_X - pillW / 2;
+  const pillY = MOUNTAIN_BASE_Y - 80;
+  rect(pillX, pillY, pillW, pillH, 'rgba(0,0,0,0.7)', overlayG);
+  rect(pillX, pillY, pillW, 2, myColor, overlayG);  // color accent top
+  rect(pillX, pillY + pillH - 2, pillW, 2, myColor, overlayG);  // bottom
+  const countText = el('text', {
+    x: MOUNTAIN_CENTER_X, y: pillY + 24,
+    'font-size': 12,
+    'font-family': 'Press Start 2P, monospace',
+    'text-anchor': 'middle',
+    fill: '#FFFFFF',
+    'stroke': '#000', 'stroke-width': 2, 'paint-order': 'stroke',
+  });
+  countText.textContent = `YOUR PIXELS: ${myPixels.length} / ${mountainGrid.length}  (${pct}%)`;
+  overlayG.appendChild(countText);
+  svg.appendChild(overlayG);
+  overlayG.animate([
+    { opacity: 0, transform: 'translateY(10px)' },
+    { opacity: 1, transform: 'translateY(0)' },
+  ], { duration: 350, fill: 'forwards' });
+
+  // ── Restore after 3.5 seconds ──
+  setTimeout(() => {
+    for (const p of otherPixels) {
+      if (p.el) p.el.setAttribute('opacity', '1');
+    }
+    overlayG.animate([
+      { opacity: 1 }, { opacity: 0 },
+    ], { duration: 300, fill: 'forwards' });
+    setTimeout(() => {
+      overlayG.remove();
+      myContribShowActive = false;
+    }, 320);
+  }, 3500);
+}
+
 // Seed the mountain with a sprinkle of pre-existing contribution
 // pixels on first load, so the scene looks like the collective has
 // already been building. Uses addContributionPixel so each seed
@@ -3498,7 +3591,7 @@ function updateSocialProof() {
   }
 
   let html = `<span class="status-pill live${isAlone ? ' alone' : ''}">${liveText}</span>`;
-  html += `<span class="status-pill harvest">🍅 ${todayTomatoes} TODAY</span>`;
+  html += `<span class="status-pill harvest" onclick="showMyContribution()" style="cursor:pointer" title="Tap to see your pixels!">🍅 ${todayTomatoes} TODAY</span>`;
   if (streakDays > 0) {
     html += `<span class="status-pill streak">🔥 ${streakDays}D STREAK</span>`;
   }
