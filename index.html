@@ -89,9 +89,9 @@ body {
 .container { background: var(--ui-bg); border: 4px solid; border-color: var(--ui-light) var(--ui-dark) var(--ui-dark) var(--ui-light); padding: 8px; }
 .inner { background: var(--ui-inner); border: 3px solid; border-color: #555 #AAA #AAA #555; padding: 12px; }
 .scene-wrap {
-  position: relative; width: 100%; aspect-ratio: 2/1; margin-bottom: 12px; overflow: hidden;
+  position: relative; width: 100%; aspect-ratio: 3/1; margin-bottom: 12px; overflow: hidden;
   border: 3px solid; border-color: #555 #AAA #AAA #555;
-  background: linear-gradient(180deg, var(--sky-top) 0%, var(--sky-bottom) 68%, #5B8731 68.1%, #5B8731 71%, #866043 71.1%, #866043 100%);
+  background: linear-gradient(180deg, var(--sky-top) 0%, var(--sky-bottom) 73%, #5B8731 73.1%, #5B8731 75%, #866043 75.1%, #866043 100%);
   transition: background var(--transition-speed);
 }
 .scene-wrap svg { width: 100%; height: 100%; display: block; }
@@ -490,7 +490,7 @@ body[data-layout="companion"] .session-indicator { font-size: 9px; }
   <div class="container">
     <div class="inner">
       <div class="scene-wrap">
-        <svg id="scene" viewBox="0 0 480 240" preserveAspectRatio="xMidYMid slice"></svg>
+        <svg id="scene" viewBox="0 0 1200 400" preserveAspectRatio="xMidYMid slice"></svg>
       </div>
       <div class="timer-section">
         <div class="mode-label" id="modeLabel">FOCUS</div>
@@ -583,7 +583,14 @@ body[data-layout="companion"] .session-indicator { font-size: 9px; }
 // CONSTANTS
 // ═══════════════════════════════════════════
 const P = 6;
-const SVG_W = 480, SVG_H = 240, GROUND_Y = 172;
+// Canvas expanded to "Horizontal Village" layout — 1200x400 viewBox.
+// 3:1 aspect ratio gives enough vertical room for the main Steve to
+// look meaningfully bigger than mini neighbors once rendered in the
+// ~520px-wide app container.
+// Main plot: x=480 to x=720 (240px wide)
+// Neighbor plots: 120px wide each, 4 per side
+// Ground extends across the full 1200px width
+const SVG_W = 1200, SVG_H = 400, GROUND_Y = 300;
 const TOTAL_SESSIONS = 8, HITS_TO_BREAK = 4;
 const LONG_BREAK_INTERVAL = 4; // long break every N sessions
 
@@ -1294,8 +1301,11 @@ let blinkTimer = 0, isBlinking = false;
 let jumpTimer = 0, isJumping = false, jumpVelocity = 0;
 let celebrateTimer = -1;
 
-const STEVE_MINE_X = 220, STEVE_IDLE_X = 200, ORE_X = 296, ORE_Y = GROUND_Y - 8*P;
-const STEVE_DIG_X = 170, HILL_BASE_X = 300, HILL_BASE_Y = GROUND_Y;
+// Main Steve lives in the central plot. Plot center x ≈ 600, so Steve
+// (8-col sprite) is anchored slightly left of center so its body is
+// centered. Ore block and hill sit to Steve's right within the plot.
+const STEVE_MINE_X = 596, STEVE_IDLE_X = 576, ORE_X = 672, ORE_Y = GROUND_Y - 8*P;
+const STEVE_DIG_X = 546, HILL_BASE_X = 680, HILL_BASE_Y = GROUND_Y;
 
 // Break state
 let chickenX = -40, chickenDir = 1, chickenVisible = false;
@@ -1306,25 +1316,32 @@ let stretchTimer = 0, isStretching = false;
 let sessionBlocksMined = 0;  // blocks mined in current focus session
 
 // ═══════════════════════════════════════════
-// BUILD SCENE
+// BUILD SCENE — Horizontal Village layout
+// ─────────────────────────────────────────
+// 9 plots total: 4 left neighbors + 1 main (larger) + 4 right neighbors
+// Main plot: x=480 to x=720 (240 wide)
+// Each neighbor plot: 120 wide
+// Ground runs continuously across all 1200 pixels
 // ═══════════════════════════════════════════
 function buildScene() {
   svg.innerHTML = '';
   const bgLayer = el('g');
   svg.appendChild(bgLayer);
 
-  // Ground
+  // Ground — runs edge to edge across the whole village
   for (let x = 0; x < SVG_W; x += P) {
     rect(x, GROUND_Y, P, P, (x/P)%7===0 ? C.grassSide : C.grassTop, bgLayer);
-    for (let row = 1; row < 12; row++)
+    for (let row = 1; row < 14; row++)
       rect(x, GROUND_Y+row*P, P, P, (x+row*3)%5===0 ? C.dirtDark : C.dirt, bgLayer);
   }
 
-  // Clouds
-  buildCloud(bgLayer, 60, 25, 50);
-  buildCloud(bgLayer, 280, 18, 70);
+  // Clouds spread across the wider sky
+  buildCloud(bgLayer,  60, 28, 60);
+  buildCloud(bgLayer, 300, 18, 70);
+  buildCloud(bgLayer, 680, 32, 55);
+  buildCloud(bgLayer, 950, 22, 65);
 
-  // Sun — round 8x8 sprite centered at (400, 40)
+  // Sun — round 8x8 sprite placed in the upper-right area of the wider sky
   sunG = el('g');
   const sunPx = [
     '..YYYY..',
@@ -1336,36 +1353,44 @@ function buildScene() {
     '.YYYYYY.',
     '..YYYY..',
   ];
-  renderSprite(sunPx, {Y:'#FFD700'}, 380, 20, 5, sunG);
-  // Eight radiating rays (E, W, N, S + four diagonals)
+  renderSprite(sunPx, {Y:'#FFD700'}, 1080, 20, 5, sunG);
+  // Eight radiating rays around (1100, 40)
   [
-    [424, 37, 10, 4],  // east
-    [366, 37, 10, 4],  // west
-    [398,  6,  4, 10], // north
-    [398, 64,  4, 10], // south
-    [422, 13,  5, 5],  // northeast
-    [373, 13,  5, 5],  // northwest
-    [422, 62,  5, 5],  // southeast
-    [373, 62,  5, 5],  // southwest
+    [1124, 37, 10, 4],  // east
+    [1066, 37, 10, 4],  // west
+    [1098,  6,  4, 10], // north
+    [1098, 64,  4, 10], // south
+    [1122, 13,  5, 5],  // northeast
+    [1073, 13,  5, 5],  // northwest
+    [1122, 62,  5, 5],  // southeast
+    [1073, 62,  5, 5],  // southwest
   ].forEach(([rx,ry,rw,rh]) => rect(rx,ry,rw,rh,'#FFD700',sunG));
   svg.appendChild(sunG);
 
-  // Moon
+  // Moon (for break/night)
   moonG = el('g', {opacity:0});
-  renderSprite(['..MM..','.MMMM.','MMMMMM','MMmmMM','.MmMM.','..MM..'], {M:C.moon,m:C.moonDark}, 100, 25, 7, moonG);
+  renderSprite(['..MM..','.MMMM.','MMMMMM','MMmmMM','.MmMM.','..MM..'], {M:C.moon,m:C.moonDark}, 120, 30, 7, moonG);
   svg.appendChild(moonG);
 
-  // Trees
-  buildTree(bgLayer, 30);
-  buildTree(bgLayer, 410);
+  // Main plot trees — frame the central plot left and right
+  buildTree(bgLayer, 485);
+  buildTree(bgLayer, 695);
 
-  // Remote users layer — sits between background and main Steve so
-  // our main character always draws on top. Populated by
-  // renderRemoteUsers() when the WebSocket delivers user updates.
+  // Plot dividers layer — subtle fence posts between plots
+  const dividerG = el('g', { opacity: 0.45 });
+  // 8 divider positions: x=120, 240, 360, 480(before main), 720(after main), 840, 960, 1080
+  [120, 240, 360, 480, 720, 840, 960, 1080].forEach(dx => {
+    // Two small fence posts per divider
+    rect(dx - 1, GROUND_Y - 10, 2, 10, C.wood, dividerG);
+    rect(dx - 2, GROUND_Y - 12, 4, 2, C.woodLight, dividerG);
+  });
+  svg.appendChild(dividerG);
+
+  // Remote users layer — drawn before focus layer so main Steve stays on top
   remoteUsersG = el('g');
   svg.appendChild(remoteUsersG);
 
-  // Focus layer
+  // Focus layer (main plot content)
   focusLayerG = el('g');
   svg.appendChild(focusLayerG);
   blockShakeG = el('g');
@@ -1374,26 +1399,26 @@ function buildScene() {
   blockShakeG.appendChild(crackOverlayG);
   focusLayerG.appendChild(blockShakeG);
 
-  // Hill (grows as Steve digs)
+  // Hill (grows as Steve digs, within main plot)
   hillG = el('g');
   focusLayerG.appendChild(hillG);
 
-  // Creeper
+  // Creeper peeks from behind the right main-plot tree
   creeperG = el('g', {opacity:0});
-  renderSprite(CREEPER, CREEPER_COLORS, 428, GROUND_Y-8*P, 5, creeperG);
+  renderSprite(CREEPER, CREEPER_COLORS, 720, GROUND_Y-8*P, 5, creeperG);
   focusLayerG.appendChild(creeperG);
 
-  // Break layer
+  // Break layer (night scene overlays on the main plot)
   breakLayerG = el('g', {opacity:0});
   svg.appendChild(breakLayerG);
   campfireG = el('g');
-  buildCampfire(campfireG, 290, GROUND_Y-4*P);
+  buildCampfire(campfireG, 590, GROUND_Y-4*P);
   breakLayerG.appendChild(campfireG);
 
-  // Wolf
+  // Wolf in break scene — sits in main plot, right side
   wolfG = el('g');
   renderSprite(WOLF1, WOLF_COLORS, 0, 0, 6, wolfG);
-  wolfG.setAttribute('transform', `translate(350,${GROUND_Y-7*P})`);
+  wolfG.setAttribute('transform', `translate(650,${GROUND_Y-7*P})`);
   breakLayerG.appendChild(wolfG);
 
   // Chicken
@@ -1428,8 +1453,8 @@ function buildCloud(parent, x, y, w) {
   [[Math.floor(w*.2),w*.6],[0,w],[Math.floor(w*.1),w*.8]].forEach(([ox,rw],i) =>
     rect(x+ox, y+i*6, rw, 6, '#FFF', g));
   g.appendChild(el('animateTransform', {
-    attributeName:'transform', type:'translate', from:'0,0', to:'-480,0',
-    dur:`${80+x*.2}s`, repeatCount:'indefinite'
+    attributeName:'transform', type:'translate', from:'0,0', to:`-${SVG_W},0`,
+    dur:`${120+x*.15}s`, repeatCount:'indefinite'
   }));
   parent.appendChild(g);
 }
@@ -1474,7 +1499,7 @@ function updateSceneMode(mode) {
     focusLayerG.setAttribute('opacity', 0);
     breakLayerG.setAttribute('opacity', 1);
     steveArmG.setAttribute('opacity', 0);
-    steveX = 180;
+    steveX = 556;  // main plot, left of campfire at 590
     updateSteveSprite('sit');
     chickenX = -40; chickenVisible = false;
     wolfFrame = 0; fireflyList = [];
@@ -1854,7 +1879,7 @@ function updateBreakScene(dt) {
 
 function updateCampfireEffects(dt) {
   if (Math.random() < dt*8) {
-    const flame = rect(290+Math.random()*4*P, GROUND_Y-4*P, P, P,
+    const flame = rect(590+Math.random()*4*P, GROUND_Y-4*P, P, P,
       [C.fire1,C.fire2,C.fire3][Math.floor(Math.random()*3)], breakLayerG);
     flame.animate([
       {transform:'translateY(0)',opacity:1},
@@ -1863,7 +1888,7 @@ function updateCampfireEffects(dt) {
     setTimeout(()=>flame.remove(),900);
   }
   if (Math.random() < dt*2) {
-    const ember = rect(292+Math.random()*3*P, GROUND_Y-5*P, 3, 3,
+    const ember = rect(592+Math.random()*3*P, GROUND_Y-5*P, 3, 3,
       Math.random()>.5?C.fire3:C.fire2, breakLayerG);
     ember.animate([
       {transform:'translate(0,0)',opacity:.8},
@@ -1916,7 +1941,7 @@ function updateWolf(dt) {
     wolfFrame = 1 - wolfFrame;
     wolfG.innerHTML = '';
     renderSprite(wolfFrame===0 ? WOLF1 : WOLF2, WOLF_COLORS, 0, 0, 6, wolfG);
-    wolfG.setAttribute('transform', `translate(350,${GROUND_Y-7*P})`);
+    wolfG.setAttribute('transform', `translate(650,${GROUND_Y-7*P})`);
   }
 }
 
@@ -1924,7 +1949,7 @@ function updateFireflies(dt) {
   // Spawn fireflies
   if (fireflyList.length < 5 && Math.random() < dt * 0.5) {
     const ff = {
-      x: 50 + Math.random() * 380,
+      x: 460 + Math.random() * 300,  // fireflies hover around main plot
       y: 40 + Math.random() * 100,
       vx: (Math.random()-.5) * 20,
       vy: (Math.random()-.5) * 15,
@@ -2306,19 +2331,32 @@ function escapeHtml(s) {
 // ═══════════════════════════════════════════
 const REMOTE_P = 3;  // pixel size — half of main scale P=6
 
-// Pre-defined positions for up to 8 remote users. Chosen to avoid
-// overlapping the main Steve (around x=200) and the hill (x=300+).
-// Coordinates are the TOP-LEFT of each mini Steve's 8x14 grid.
-const REMOTE_SLOTS = [
-  { x:  48, y: 110 }, // 0 — left background
-  { x: 128, y: 116 }, // 1 — left foreground
-  { x: 256, y: 116 }, // 2 — right of center
-  { x: 360, y: 110 }, // 3 — right background
-  { x:  72, y:  60 }, // 4 — upper left (sky)
-  { x: 176, y:  56 }, // 5 — upper center
-  { x: 328, y:  60 }, // 6 — upper right
-  { x: 408, y: 116 }, // 7 — far right
+// ═══════════════════════════════════════════
+// PLOT SLOTS — Horizontal Village layout
+// ─────────────────────────────────────────
+// 8 neighbor plots + 1 main plot = 9 visible slots.
+//   Left 4 plots:   x=0~480, each 120px wide
+//   Main plot:      x=480~720, 240px wide (not a "slot" — fixed)
+//   Right 4 plots:  x=720~1200, each 120px wide
+// PLOT_SLOTS contains the CENTER x of each neighbor plot.
+// Ordered left→right for predictable placement.
+// ═══════════════════════════════════════════
+const PLOT_W = 120;
+const PLOT_SLOTS = [
+  { centerX:  60, side: 'L' }, // L4 (far left)
+  { centerX: 180, side: 'L' }, // L3
+  { centerX: 300, side: 'L' }, // L2
+  { centerX: 420, side: 'L' }, // L1 (closest to main on left)
+  { centerX: 780, side: 'R' }, // R1 (closest to main on right)
+  { centerX: 900, side: 'R' }, // R2
+  { centerX:1020, side: 'R' }, // R3
+  { centerX:1140, side: 'R' }, // R4 (far right)
 ];
+const PLOT_GROUND_Y = GROUND_Y;  // share the world ground line
+// Mini Steve sits on the ground. Height = 14 rows × REMOTE_P = 42px.
+// Top-left of the mini Steve sprite relative to plot center:
+const MINI_STEVE_OFFSET_X = -4 * REMOTE_P;  // sprite is 8 cols wide
+const MINI_STEVE_OFFSET_Y = -14 * REMOTE_P - 2;  // sprite is 14 rows tall
 
 // Hat color per theme — used to tint the mini Steve's cap
 function remoteHatColors(themeId) {
@@ -2348,30 +2386,64 @@ function renderRemoteUsers() {
   if (!remoteUsersG) return;
   remoteUsersG.innerHTML = '';
 
-  // Filter out ourselves from the list
+  // Always draw decorative "empty" content in every neighbor plot so the
+  // village never looks broken. Plots occupied by real users are then
+  // overlaid with that user's mini Steve.
   const others = (liveUsers || []).filter(u => u.id !== myUserId);
-  if (others.length === 0) return;
-
-  const toShow = others.slice(0, REMOTE_SLOTS.length);
-  toShow.forEach((user, i) => {
-    const slot = REMOTE_SLOTS[i];
-    drawRemoteSteve(remoteUsersG, slot.x, slot.y, user);
+  const occupied = new Set();
+  others.slice(0, PLOT_SLOTS.length).forEach((user, i) => {
+    occupied.add(i);
+    const slot = PLOT_SLOTS[i];
+    drawPlotTree(remoteUsersG, slot.centerX);
+    drawRemoteSteve(remoteUsersG, slot.centerX + MINI_STEVE_OFFSET_X,
+                    PLOT_GROUND_Y + MINI_STEVE_OFFSET_Y, user);
   });
 
-  // Overflow indicator
-  if (others.length > REMOTE_SLOTS.length) {
-    const overflow = others.length - REMOTE_SLOTS.length;
+  // Empty plots — just a small tree + gentle "available" hint
+  PLOT_SLOTS.forEach((slot, i) => {
+    if (occupied.has(i)) return;
+    drawPlotTree(remoteUsersG, slot.centerX, /* faded */ true);
+  });
+
+  // Overflow indicator: "+N more" floating text at the edges
+  if (others.length > PLOT_SLOTS.length) {
+    const overflow = others.length - PLOT_SLOTS.length;
     const t = el('text', {
-      x: 240, y: 200,
+      x: SVG_W - 30, y: GROUND_Y - 80,
       fill: '#FFF',
-      'font-size': 8,
+      'font-size': 10,
       'font-family': 'Press Start 2P, monospace',
-      'text-anchor': 'middle',
-      'stroke': '#000', 'stroke-width': 1,
+      'text-anchor': 'end',
+      'stroke': '#000', 'stroke-width': 1.5,
+      'paint-order': 'stroke',
     });
-    t.textContent = `+${overflow} more`;
+    t.textContent = `+${overflow} more →`;
     remoteUsersG.appendChild(t);
   }
+}
+
+// Draw a small tree per plot — every plot gets one so neighbor plots
+// never feel empty. When `faded` is true, the tree is rendered at lower
+// opacity to signal "no one is here yet".
+function drawPlotTree(parent, centerX, faded = false) {
+  const g = el('g', { opacity: faded ? 0.45 : 0.95 });
+  // Trunk (3 blocks tall)
+  const trunkX = centerX + 16;  // offset to the right of mini Steve
+  for (let i = 0; i < 3; i++) {
+    rect(trunkX, GROUND_Y - (i + 1) * 3, 3, 3, i % 2 === 0 ? C.wood : C.woodLight, g);
+  }
+  // Leaves — small cluster
+  const lx = trunkX - 3, ly = GROUND_Y - 15;
+  const leafPattern = [
+    [0, 0], [3, 0], [6, 0],
+    [-3, 3], [0, 3], [3, 3], [6, 3], [9, 3],
+    [0, 6], [3, 6], [6, 6],
+  ];
+  leafPattern.forEach(([dx, dy]) => {
+    rect(lx + dx, ly + dy, 3, 3,
+      (dx + dy) % 6 === 0 ? C.leavesBright : C.leaves, g);
+  });
+  parent.appendChild(g);
 }
 
 // Draw one remote user at a given slot. Pose varies by timer mode:
@@ -3147,6 +3219,9 @@ createStars();
 buildProgressBar();
 buildHotbar();
 buildScene();
+// Paint the initial village state — empty plots with small trees even
+// when we have no live users yet, so the scene never looks broken.
+renderRemoteUsers();
 renderDailyStats();
 renderSessionLog();
 buildThemePicker();
