@@ -629,21 +629,27 @@ const MOUNTAIN_BLOCK_W = 24;      // px per horizontal block in a layer
 const MOUNTAIN_MAX_LAYERS = 13;   // visual cap; 13 layers × 32 = 416px tall
 
 // ── Character rows (front = larger, back = smaller) ──
-// Each row has fixed slot positions. When a user joins, they fill
-// the lowest-index empty slot, preferring back→mid→front so the main
-// stays front-center and new users populate the scene gradually.
+// All characters stand on the grass FIELD around the mountain's base.
+// The field runs from y=MOUNTAIN_BASE_Y (420) down to GROUND_Y (540).
+// The minimum feet_y is determined not just by the sprite head but
+// by the FLAG text above it, which sits at roughly feet_y - bodyH - 17:
+//   back (s3): flag_y = feet_y - 42 - 17 — need feet_y >= 481 for
+//              the flag to clear the mountain base (420).
+//   mid  (s4): flag_y = feet_y - 56 - 20 — need feet_y >= 496.
+//   front(s5): flag_y = feet_y - 70 - 23 — need feet_y >= 513.
+// We add margin and put rows at 495 / 525 / 570 for clear depth.
 const CHAR_SLOTS = [
-  // Back row — 5 slots, small scale, behind mountain base line
-  { id: 'back-1',  x: 120, y: 390, scale: 3, row: 'back' },
-  { id: 'back-2',  x: 250, y: 400, scale: 3, row: 'back' },
-  { id: 'back-3',  x: 550, y: 400, scale: 3, row: 'back' },
-  { id: 'back-4',  x: 680, y: 390, scale: 3, row: 'back' },
+  // Back row — 4 slots, small scale, back of the grass field
+  { id: 'back-1',  x: 110, y: 495, scale: 3, row: 'back' },
+  { id: 'back-2',  x: 250, y: 495, scale: 3, row: 'back' },
+  { id: 'back-3',  x: 550, y: 495, scale: 3, row: 'back' },
+  { id: 'back-4',  x: 690, y: 495, scale: 3, row: 'back' },
   // Mid row — 2 slots, medium scale, flanking the mountain sides
-  { id: 'mid-1',   x:  80, y: 470, scale: 4, row: 'mid' },
-  { id: 'mid-2',   x: 720, y: 470, scale: 4, row: 'mid' },
-  // Front row — 2 slots, larger scale, next to main
-  { id: 'front-1', x: 220, y: 520, scale: 5, row: 'front' },
-  { id: 'front-2', x: 580, y: 520, scale: 5, row: 'front' },
+  { id: 'mid-1',   x:  70, y: 525, scale: 4, row: 'mid' },
+  { id: 'mid-2',   x: 730, y: 525, scale: 4, row: 'mid' },
+  // Front row — 2 slots, larger scale, next to main Steve on front strip
+  { id: 'front-1', x: 200, y: 570, scale: 5, row: 'front' },
+  { id: 'front-2', x: 600, y: 570, scale: 5, row: 'front' },
   // (main Steve takes the center front spot, rendered separately)
 ];
 // MAIN Steve position (center-front, largest)
@@ -1497,20 +1503,33 @@ function buildScene() {
   renderSprite(['..MM..','.MMMM.','MMMMMM','MMmmMM','.MmMM.','..MM..'], {M:C.moon,m:C.moonDark}, 90, 60, 8, moonG);
   svg.appendChild(moonG);
 
-  // ── 6. Central Mountain (collective) — main visual anchor.
-  //        Drawn BEFORE the remote users so characters can stand on
-  //        its lower slopes (back-row users appear on the grass zone).
+  // ── 6. Grass FIELD — solid meadow behind the mountain, filling the
+  //        area between the mountain base line and the front dirt
+  //        strip. Without this, characters standing below the mountain
+  //        appear to float in the sky. Drawn BEFORE the mountain so
+  //        the mountain sits on top of the field naturally.
+  const grassFieldG = el('g');
+  const FIELD_H = GROUND_Y - MOUNTAIN_BASE_Y;  // 540 - 420 = 120px
+  rect(0, MOUNTAIN_BASE_Y, SVG_W, FIELD_H, C.grassTop, grassFieldG);
+  // Sparse texture dots — lighter flecks for a bit of variation
+  for (let y = MOUNTAIN_BASE_Y; y < GROUND_Y; y += P * 2) {
+    for (let x = 0; x < SVG_W; x += P * 2) {
+      if (((x / P) + (y / P) * 3) % 9 === 0) {
+        rect(x, y, P, P, C.grassSide, grassFieldG);
+      }
+    }
+  }
+  svg.appendChild(grassFieldG);
+
+  // ── 7. Central Mountain (collective) — main visual anchor.
+  //        Rests on top of the grass field.
   mountainG = el('g');
   svg.appendChild(mountainG);
 
-  // ── 7. Remote users layer — drawn AFTER the mountain so back-row
-  //        characters sit on the mountain slope instead of being hidden
-  //        behind it. Front-row / main Steve are below the mountain
-  //        base anyway so they're unaffected.
-  remoteUsersG = el('g');
-  svg.appendChild(remoteUsersG);
-
-  // ── 8. Front grass strip under the main area ──
+  // ── 8. Front grass strip under the main area — grass top + dirt.
+  //        Drawn BEFORE remote users so characters rendered in the
+  //        front row appear to stand on top of the strip rather than
+  //        being covered by the dirt.
   const groundG = el('g');
   for (let x = 0; x < SVG_W; x += P) {
     // Grass top layer
@@ -1522,6 +1541,12 @@ function buildScene() {
     }
   }
   svg.appendChild(groundG);
+
+  // ── 9. Remote users layer — drawn AFTER the ground so their feet
+  //        appear on top of the grass/dirt strip instead of being
+  //        hidden beneath it.
+  remoteUsersG = el('g');
+  svg.appendChild(remoteUsersG);
 
   // ── 9. Main Steve trees (close to main Steve, on either side) ──
   const mainTreesG = el('g');
