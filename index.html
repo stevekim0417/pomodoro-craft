@@ -1420,22 +1420,19 @@ function buildScene() {
   rect(0, 0, SVG_W, GROUND_Y, '#8FD4EC', skyG);
   svg.appendChild(skyG);
 
-  // ── 2a. Far-far background mountain range (3rd parallax layer,
-  //        very faded, reaches high into the sky corners) ──
+  // ── 2a. Far-far background mountain range (left side only —
+  //        the right side stays open around the sun) ──
   const farG = el('g', { opacity: 0.22 });
   drawDistantMountain(farG,    0,  80, 340, 260, '#A8BCD2');
   drawDistantMountain(farG,  260,  60, 320, 310, '#95AEC6');
-  drawDistantMountain(farG,  540,  90, 360, 250, '#A8BCD2');
-  drawDistantMountain(farG,  750,  70, 280, 300, '#95AEC6');
   svg.appendChild(farG);
 
-  // ── 2b. Middle-distance mountain range (2nd parallax, taller
-  //        than the original layer so it fills the sky mid-zone) ──
+  // ── 2b. Middle-distance mountain range (also left-side biased;
+  //        keeps the sun area clear of mountains) ──
   const distantG = el('g', { opacity: 0.42 });
   drawDistantMountain(distantG,  20, 220, 240, 170, '#6B8FAE');
   drawDistantMountain(distantG, 190, 180, 280, 210, '#557A99');
   drawDistantMountain(distantG, 440, 200, 300, 200, '#6B8FAE');
-  drawDistantMountain(distantG, 640, 170, 260, 230, '#557A99');
   svg.appendChild(distantG);
 
   // ── 3. Clouds scattered across the sky (8 puffs across full width) ──
@@ -1450,11 +1447,20 @@ function buildScene() {
   buildCloud(cloudsG,  80, 140, 50);  // cloud near lower-left sky
   svg.appendChild(cloudsG);
 
-  // ── 3b. Birds — three small silhouettes scattered in the sky ──
+  // ── 3b. Birds — visible silhouettes scattered across the sky ──
+  // Mix of sizes: a few big ones in the foreground, a flock of smaller
+  // ones receding into the distance for depth.
   const birdsG = el('g');
-  drawBird(birdsG, 110,  95);
-  drawBird(birdsG, 380, 140);
-  drawBird(birdsG, 640, 120);
+  // Big bird, upper-left (foreground)
+  drawBird(birdsG, 120,  70, 3);
+  // Small flock in V formation, upper-center/right area (near the sun)
+  drawBird(birdsG, 560, 110, 2);
+  drawBird(birdsG, 590, 130, 2);
+  drawBird(birdsG, 620, 110, 2);
+  // Mid-level solo bird, left of center
+  drawBird(birdsG, 250, 170, 2);
+  // Distant small bird near the sun (right side)
+  drawBird(birdsG, 680, 190, 2);
   svg.appendChild(birdsG);
 
   // ── 4. Sun (round, top-right) ──
@@ -1626,19 +1632,28 @@ function buildCampfire(parent, x, y) {
 }
 
 // ═══════════════════════════════════════════
-// BIRD — small silhouette flying in the sky
-// A 13×3 pixel seagull-shape bird for decorative sky detail.
+// BIRD — M-silhouette flying in the sky
+// Scaled so it's actually visible on the 800x600 canvas.
+// Uses a chunky 20x8 M-shape in solid dark color.
 // ═══════════════════════════════════════════
-function drawBird(parent, x, y) {
-  const g = el('g', { opacity: 0.6 });
-  const c = '#2A3A50';
-  // Classic "M" silhouette
-  rect(x,      y,     3, 1, c, g);
-  rect(x + 2,  y + 1, 2, 1, c, g);
-  rect(x + 4,  y + 2, 2, 1, c, g);
-  rect(x + 6,  y + 2, 2, 1, c, g);
-  rect(x + 7,  y + 1, 2, 1, c, g);
-  rect(x + 10, y,     3, 1, c, g);
+function drawBird(parent, x, y, size = 2) {
+  const g = el('g');
+  const c = '#1A2840';
+  // Scale-based 10x4 "M" silhouette: left wing tip goes up, dips in
+  // the middle, right wing tip goes up. Each pixel is `size` × `size`.
+  const s = size;
+  // Left wing up
+  rect(x,           y,         s * 2, s, c, g);
+  rect(x + s * 2,   y + s,     s * 2, s, c, g);
+  // Left wing dip into body
+  rect(x + s * 4,   y + s * 2, s * 2, s, c, g);
+  // Body / V center
+  rect(x + s * 5,   y + s * 3, s * 2, s, c, g);
+  // Right wing rise
+  rect(x + s * 6,   y + s * 2, s * 2, s, c, g);
+  rect(x + s * 8,   y + s,     s * 2, s, c, g);
+  // Right wing tip
+  rect(x + s * 10,  y,         s * 2, s, c, g);
   parent.appendChild(g);
 }
 
