@@ -968,6 +968,14 @@ function recordSession(type, minutes) {
       nick: currentNick,
       theme: currentThemeId,
     });
+    // 🍅 One tomato earned → one permanent pixel on the mountain grid.
+    // This is the ONLY way grid cells get filled locally — dig-time
+    // particles are temporary. The pixel arcs from Steve to the
+    // mountain with a satisfying landing.
+    const myColor = colorForNick(currentNick);
+    setTimeout(() => {
+      flingContributionPixel(MAIN_STEVE_X + 4*P, GROUND_Y - 8*P, myColor);
+    }, 1200);  // slight delay after the big flyContributionBlock
   }
 
   renderDailyStats();
@@ -1207,15 +1215,12 @@ function addHillBlock() {
   }
   if (hillLayerQueue.length > 0) hillLayerQueue.shift();
 
-  // Visible feedback: fling a tiny chunk in the user's hat color
-  // from Steve's pickaxe to a random spot on the central mountain.
-  // The chunk LANDS as a permanent pixel that decorates the mountain
-  // in a mosaic of contribution colors. Note: we do NOT bump
-  // myMountainContribution here — that counter tracks authoritative
-  // mountain blocks (1 + floor(min/10) per session), while these
-  // dig pixels are sub-block cosmetic confetti.
+  // Visible feedback: fling a TEMPORARY particle in the user's hat
+  // color from Steve's pickaxe toward the mountain. The particle
+  // fades on landing — no permanent pixel. Only a completed session
+  // (= one tomato) earns a permanent grid pixel.
   const myColor = colorForNick(currentNick);
-  flingContributionPixel(steveX + 5 * P, GROUND_Y - 6 * P, myColor);
+  flingTemporaryParticle(steveX + 5 * P, GROUND_Y - 6 * P, myColor);
 }
 
 function flingDirt(sx, sy, ex, ey, col, row) {
@@ -2270,6 +2275,35 @@ function addContributionPixel(color, spot) {
     triggerCelebration();
   }
   return s;
+}
+
+// Temporary dirt particle — arcs from Steve to the mountain but
+// does NOT fill a grid cell. Just visual feedback that "you're
+// working toward your next tomato." The particle puffs away on
+// landing instead of becoming a permanent pixel.
+function flingTemporaryParticle(srcX, srcY, color) {
+  if (!contributionPixelsG) return;
+  const spot = pickMountainSpot();
+  // Put the cell back — we're just borrowing it for a coordinate,
+  // NOT consuming it permanently.
+  if (spot) gridFillIndex--;
+  if (!spot) return;
+  const S = CONTRIBUTION_PIXEL_SIZE;
+  const chunk = el('g');
+  rect(-S/2, -S/2, S, S, color, chunk);
+  rect(-S/2, -S/2, S, 1, '#FFFFFF', chunk);
+  svg.appendChild(chunk);
+  const tx = spot.x + S / 2;
+  const ty = spot.y + S / 2;
+  const mx = (srcX + tx) / 2 + (Math.random() - 0.5) * 40;
+  const my = Math.min(srcY, ty) - 70 - Math.random() * 30;
+  const dur = 480 + Math.random() * 140;
+  chunk.animate([
+    { transform: `translate(${srcX}px,${srcY}px) scale(1) rotate(0deg)`, opacity: 0.8 },
+    { transform: `translate(${mx}px,${my}px) scale(1.1) rotate(180deg)`, opacity: 0.6, offset: 0.5 },
+    { transform: `translate(${tx}px,${ty}px) scale(0.5) rotate(360deg)`, opacity: 0 },
+  ], { duration: dur, easing: 'ease-in', fill: 'forwards' });
+  setTimeout(() => chunk.remove(), dur + 50);
 }
 
 function flingContributionPixel(srcX, srcY, color) {
@@ -3346,8 +3380,9 @@ function tickDemoUsers() {
         u.totalSec = 300;
         u.tomatoesToday = (u.tomatoesToday || 0) + 1;
         modeChanged = true;
+        // One tomato earned → one permanent pixel on the mountain.
         if (typeof addRemoteContributionBurst === 'function') {
-          addRemoteContributionBurst(u.nick, 3 + Math.floor(Math.random() * 3));
+          addRemoteContributionBurst(u.nick, 1);
         }
       }
     } else if (u.timerMode === 'break' || u.timerMode === 'longbreak') {
@@ -3371,19 +3406,18 @@ function tickDemoUsers() {
   });
   if (modeChanged) renderRemoteUsers();
 
-  // Demo-mode ambient contribution: periodically drop a small burst
-  // of pixels in a random focused user's color. This makes the
-  // mountain feel alive for solo / offline visitors — they can see
-  // "the collective" working alongside them even without a backend.
-  if (contributionPixelsG && Math.random() < 0.55) {
+  // Demo-mode ambient digging particles: focused demo users fling
+  // TEMPORARY particles at the mountain so the scene looks active.
+  // These do NOT consume grid cells — only session completions do.
+  if (contributionPixelsG && Math.random() < 0.3) {
     const focusers = DEMO_USERS.filter(u => u.timerMode === 'focus');
     if (focusers.length > 0) {
-      // Fire a burst from 1-2 different focused users for variety
-      const numUsersContributing = Math.random() < 0.4 ? 2 : 1;
-      for (let n = 0; n < numUsersContributing; n++) {
-        const u = focusers[Math.floor(Math.random() * focusers.length)];
-        const burstSize = 1 + Math.floor(Math.random() * 3);  // 1-3 pixels
-        addRemoteContributionBurst(u.nick, burstSize);
+      const u = focusers[Math.floor(Math.random() * focusers.length)];
+      const slot = findUserSlotByNick(u.nick);
+      if (slot) {
+        const color = colorForNick(u.nick);
+        const halfBody = (slot.scale || 4) * 7;
+        flingTemporaryParticle(slot.x, slot.y - halfBody, color);
       }
     }
   }
@@ -3491,10 +3525,9 @@ function connectPresence() {
             // contributing user's slot (if we can find it).
             if (msg.session && delta > 0) {
               flyContributionBlock(msg.session);
-              // Burst of contribution pixels — one per earned block —
-              // in the contributing user's color, so their handprint
-              // shows up on the mountain mosaic.
-              addRemoteContributionBurst(msg.session.nick, delta);
+              // One tomato earned by a remote user → one permanent pixel
+              // arcing from their character to the mountain.
+              addRemoteContributionBurst(msg.session.nick, 1);
             }
           }
           renderLiveFeed();
@@ -3576,18 +3609,19 @@ function updateSocialProof() {
   const streakInfo = (typeof loadStreak === 'function') ? (loadStreak() || {}) : {};
   const streakDays = streakInfo.current || 0;
 
-  // LIVE pill — text changes for the "alone" edge case so it
-  // celebrates being first instead of feeling empty.
+  // LIVE pill — friendly "studying together" language so users
+  // immediately understand "wow, this many people are studying
+  // with me right now?" instead of the abstract "FOCUSING" label.
   let liveText, isAlone = false;
   if (isReal) {
     if (n <= 1) {
-      liveText = '🟢 ALONE · BE FIRST';
+      liveText = '📖 STUDYING ALONE';
       isAlone = true;
     } else {
-      liveText = `🟢 ${n} FOCUSING`;
+      liveText = `📖 ${n} STUDYING TOGETHER`;
     }
   } else {
-    liveText = `🟢 ~${n} FOCUSING`;
+    liveText = `📖 ${n} STUDYING TOGETHER`;
   }
 
   let html = `<span class="status-pill live${isAlone ? ' alone' : ''}">${liveText}</span>`;
