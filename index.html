@@ -255,6 +255,14 @@ body {
 }
 [data-mode="break"] .social-proof { color: #88BBFF; }
 .social-proof.live { color: #FFD700; } /* gold-tint when real data is flowing */
+.social-proof.alone {
+  color: #FFA500;  /* warm "first mover" orange */
+  animation: aloneGlow 3s infinite alternate;
+}
+@keyframes aloneGlow {
+  0%   { text-shadow: 1px 1px 0 #000; }
+  100% { text-shadow: 1px 1px 0 #000, 0 0 4px rgba(255, 165, 0, 0.6); }
+}
 
 /* Live feed ticker — last N sessions from other users */
 .live-feed {
@@ -398,6 +406,28 @@ body {
   border: 1px solid #000;
 }
 
+/* Nickname input in the settings drawer */
+.drawer-nick-wrap {
+  display: flex; flex-direction: column; align-items: center;
+  gap: 4px; margin-top: 4px;
+}
+.drawer-nick-input {
+  font-family: 'Press Start 2P', monospace; font-size: 7px;
+  padding: 6px 10px; background: #555; color: #FFF;
+  border: 2px solid; border-color: #2A2A2A #7A7A7A #7A7A7A #2A2A2A;
+  width: 200px; max-width: 80%; outline: none; text-align: center;
+  text-shadow: 1px 1px 0 #000; letter-spacing: 1px;
+}
+.drawer-nick-input::placeholder { color: #999; }
+.drawer-nick-input:focus {
+  border-color: #4488CC #2A5A8A #2A5A8A #4488CC; background: #4A4A4A;
+}
+.drawer-nick-hint {
+  font-family: 'Press Start 2P', monospace; font-size: 6px;
+  color: #888; text-shadow: 1px 1px 0 #000;
+}
+.drawer-nick-hint.saved { color: #8DB360; }
+
 /* ══════════════════════════════════════════════
    Focus Companion Mode — stream/overlay layout.
    Activated by ?mode=companion URL param.
@@ -528,6 +558,12 @@ body[data-layout="companion"] .session-indicator { font-size: 9px; }
         </div>
         <div class="drawer-section-label">ORE THEME</div>
         <div class="drawer-theme-picker" id="themePicker"></div>
+        <div class="drawer-section-label">YOUR NAME (visible to others)</div>
+        <div class="drawer-nick-wrap">
+          <input type="text" id="nickInput" class="drawer-nick-input" maxlength="20"
+                 placeholder="guest_xxxx" autocomplete="off">
+          <span class="drawer-nick-hint" id="nickHint"></span>
+        </div>
       </div>
     </div>
   </div>
@@ -590,6 +626,30 @@ let currentThemeId = (urlTheme && ['tomato','diamond','emerald','gold','ruby'].i
   ? urlTheme : 'tomato';
 const isCompanionMode = urlParam('mode') === 'companion';
 const shouldAutoStart = urlParam('autostart') === '1' || urlParam('autostart') === 'true';
+
+// ═══════════════════════════════════════════
+// NICKNAME — anonymous identity for multiplayer
+// ─────────────────────────────────────────
+// First visit: generate guest_XXXX (4 hex chars). Persisted in
+// localStorage. User can change it via the settings drawer. It's
+// sent to the Worker on every hello / state update so other users
+// see a human-readable label above each mini Steve.
+// ═══════════════════════════════════════════
+function loadNick() {
+  const stored = localStorage.getItem('pomodocraft_nick');
+  if (stored) return stored;
+  const rand = Math.random().toString(16).slice(2, 6);
+  const fresh = `guest_${rand}`;
+  localStorage.setItem('pomodocraft_nick', fresh);
+  return fresh;
+}
+function saveNick(nick) {
+  const clean = (nick || '').trim().replace(/[^\w가-힣.-]/g, '').slice(0, 20);
+  const final = clean || `guest_${Math.random().toString(16).slice(2, 6)}`;
+  localStorage.setItem('pomodocraft_nick', final);
+  return final;
+}
+let currentNick = loadNick();
 
 function todayKey() {
   const d = new Date();
@@ -1220,7 +1280,7 @@ let sceneMode = 'idle';
 let steveGroup, steveBodyG, steveLegsG, steveArmG;
 let oreBlockG, crackOverlayG, blockShakeG;
 let hillG;
-let sunG, moonG, focusLayerG, breakLayerG;
+let sunG, moonG, focusLayerG, breakLayerG, remoteUsersG;
 let campfireG, wolfG, chickenG, creeperG;
 let particleLayer, itemLayer;
 
@@ -1298,6 +1358,12 @@ function buildScene() {
   // Trees
   buildTree(bgLayer, 30);
   buildTree(bgLayer, 410);
+
+  // Remote users layer — sits between background and main Steve so
+  // our main character always draws on top. Populated by
+  // renderRemoteUsers() when the WebSocket delivers user updates.
+  remoteUsersG = el('g');
+  svg.appendChild(remoteUsersG);
 
   // Focus layer
   focusLayerG = el('g');
@@ -2012,7 +2078,10 @@ const HAS_BACKEND = API_BASE_URL.length > 0;
 let liveOnlineCount = null;     // number | null
 let liveTodayHarvest = 0;
 let liveFeed = [];              // [{ minutes, theme, nick, at }, ...]
+let liveUsers = [];             // [{ id, nick, theme, timerMode, remainingSec, totalSec }]
+let myUserId = null;            // our own id, so we filter ourselves from the list
 let presenceSocket = null;
+let stateBroadcastTimer = null; // setInterval handle for periodic state updates
 
 function estimateFocusersNow() {
   // Fallback for when the backend isn't configured
@@ -2038,6 +2107,8 @@ async function fetchGlobalStats() {
     liveOnlineCount = data.onlineNow;
     liveTodayHarvest = (data.today && data.today.sessions) || 0;
     liveFeed = data.feed || [];
+    liveUsers = data.users || [];
+    renderRemoteUsers();
     return data;
   } catch (e) {
     return null;
@@ -2058,28 +2129,59 @@ async function recordGlobalSession(minutes, theme, nick = null) {
 function connectPresence() {
   if (!HAS_BACKEND) return;
   try {
-    // Convert https:// → wss:// (or http:// → ws://)
     const wsUrl = API_BASE_URL.replace(/^http/, 'ws') + '/api/presence';
     presenceSocket = new WebSocket(wsUrl);
+
+    presenceSocket.addEventListener('open', () => {
+      // Identify ourselves immediately
+      sendPresenceMessage({
+        type: 'hello',
+        nick: currentNick,
+        theme: currentThemeId,
+      });
+      // Start broadcasting our timer state every 5s
+      if (stateBroadcastTimer) clearInterval(stateBroadcastTimer);
+      stateBroadcastTimer = setInterval(broadcastMyState, 5000);
+      // And send one immediately so we appear to others right away
+      broadcastMyState();
+    });
 
     presenceSocket.addEventListener('message', (evt) => {
       try {
         const msg = JSON.parse(evt.data);
-        if (msg.type === 'welcome' || msg.type === 'count') {
-          liveOnlineCount = msg.onlineNow;
+        if (msg.type === 'welcome') {
+          myUserId = msg.yourId;
+          liveUsers = msg.users || [];
+          liveOnlineCount = liveUsers.length;
           updateSocialProof();
+          renderRemoteUsers();
+        } else if (msg.type === 'users') {
+          liveUsers = msg.users || [];
+          liveOnlineCount = liveUsers.length;
+          updateSocialProof();
+          renderRemoteUsers();
         } else if (msg.type === 'session') {
-          // Prepend to feed; cap at 10
           liveFeed = [msg.session, ...liveFeed].slice(0, 10);
           liveTodayHarvest++;
           renderLiveFeed();
           updateSocialProof();
+        } else if (msg.type === 'pong') {
+          /* keep-alive ack */
         }
       } catch (e) { /* ignore malformed */ }
     });
 
     presenceSocket.addEventListener('close', () => {
       presenceSocket = null;
+      if (stateBroadcastTimer) {
+        clearInterval(stateBroadcastTimer);
+        stateBroadcastTimer = null;
+      }
+      // Clear remote users — we no longer know who's online
+      liveUsers = [];
+      liveOnlineCount = null;
+      renderRemoteUsers();
+      updateSocialProof();
       // Reconnect after 5s
       setTimeout(connectPresence, 5000);
     });
@@ -2090,24 +2192,73 @@ function connectPresence() {
   } catch (e) { /* silent */ }
 }
 
+function sendPresenceMessage(obj) {
+  if (!presenceSocket || presenceSocket.readyState !== WebSocket.OPEN) return;
+  try { presenceSocket.send(JSON.stringify(obj)); } catch (e) {}
+}
+
+// Called periodically and on any timer state change.
+// Sends this user's current timer state so other clients can render
+// them with the correct mode + remaining seconds above their head.
+function broadcastMyState() {
+  if (!HAS_BACKEND) return;
+  sendPresenceMessage({
+    type: 'state',
+    timerMode: (timerState === 'running' || timerState === 'paused') ? timerMode : 'idle',
+    remainingSec: Math.max(0, remainingSeconds || 0),
+    totalSec: Math.max(0, totalSeconds || 0),
+    theme: currentThemeId,
+  });
+}
+
 function disconnectPresence() {
   if (presenceSocket) {
     try { presenceSocket.close(); } catch (e) {}
     presenceSocket = null;
+  }
+  if (stateBroadcastTimer) {
+    clearInterval(stateBroadcastTimer);
+    stateBroadcastTimer = null;
   }
 }
 
 function updateSocialProof() {
   const el = document.getElementById('socialProof');
   if (!el) return;
-  const n = (liveOnlineCount != null) ? liveOnlineCount : estimateFocusersNow();
+
+  // Real backend data takes precedence — otherwise fall back to the
+  // time-of-day estimate so the app doesn't feel dead during local use.
   const isReal = liveOnlineCount != null;
-  // When real backend is connected, show an indicator so users know it's live
-  const label = isReal
-    ? `🌱 Join ${n} others focusing right now · LIVE`
-    : `🌱 Join ${n} others focusing right now`;
+  const n = isReal ? liveOnlineCount : estimateFocusersNow();
+
+  let label;
+  if (isReal) {
+    // Honest messages tuned for the low-traffic reality: most of the
+    // time the user will be alone (n=1). The copy celebrates rather
+    // than apologizes for that, and ramps up naturally as more
+    // people join.
+    if (n === 0) {
+      // Shouldn't happen (we count ourselves) but cover the edge case
+      label = '🌱 Be the first one focusing today';
+    } else if (n === 1) {
+      // It's just the user themselves
+      label = `🌱 You're focused alone · be the first today ✨`;
+    } else if (n === 2) {
+      // Magical moment — exactly one other person is here!
+      label = `🌱 You're focused with 1 other right now · LIVE`;
+    } else if (n <= 5) {
+      label = `🌱 You're focused with ${n - 1} others right now · LIVE`;
+    } else {
+      label = `🌱 Join ${n - 1} others focusing right now · LIVE`;
+    }
+  } else {
+    // Solo/offline mode — use the fake estimate
+    label = `🌱 Join ${n} others focusing right now`;
+  }
   el.textContent = label;
   el.classList.toggle('live', isReal);
+  // Extra highlight for the "alone" state so it feels intentional
+  el.classList.toggle('alone', isReal && n <= 1);
 }
 
 // ═══════════════════════════════════════════
@@ -2141,6 +2292,131 @@ function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, c => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
   }[c]));
+}
+
+// ═══════════════════════════════════════════
+// REMOTE USERS — render other connected users as mini Steves
+// ─────────────────────────────────────────
+// Each remote user gets one of 8 fixed slots in the scene so layout
+// is stable and predictable. Mini Steves are drawn at half the main
+// scale (P=3) with a hat matching their current theme, a nickname
+// above, and their timer state below. State updates trigger a full
+// re-render of the remoteUsersG layer — cheap because there are at
+// most ~8 users and updates happen every 5s.
+// ═══════════════════════════════════════════
+const REMOTE_P = 3;  // pixel size — half of main scale P=6
+
+// Pre-defined positions for up to 8 remote users. Chosen to avoid
+// overlapping the main Steve (around x=200) and the hill (x=300+).
+// Coordinates are the TOP-LEFT of each mini Steve's 8x14 grid.
+const REMOTE_SLOTS = [
+  { x:  48, y: 110 }, // 0 — left background
+  { x: 128, y: 116 }, // 1 — left foreground
+  { x: 256, y: 116 }, // 2 — right of center
+  { x: 360, y: 110 }, // 3 — right background
+  { x:  72, y:  60 }, // 4 — upper left (sky)
+  { x: 176, y:  56 }, // 5 — upper center
+  { x: 328, y:  60 }, // 6 — upper right
+  { x: 408, y: 116 }, // 7 — far right
+];
+
+// Hat color per theme — used to tint the mini Steve's cap
+function remoteHatColors(themeId) {
+  const t = THEMES[themeId] || THEMES.tomato;
+  // Extract hat colors from current theme fallback (we reuse the
+  // main cap which is red — future: let each user pick a hat).
+  return { J: C.hat, j: C.hatDark, K: C.hatBand };
+}
+
+function renderRemoteUsers() {
+  if (!remoteUsersG) return;
+  remoteUsersG.innerHTML = '';
+
+  // Filter out ourselves from the list
+  const others = (liveUsers || []).filter(u => u.id !== myUserId);
+  if (others.length === 0) return;
+
+  const toShow = others.slice(0, REMOTE_SLOTS.length);
+  toShow.forEach((user, i) => {
+    const slot = REMOTE_SLOTS[i];
+    drawRemoteSteve(remoteUsersG, slot.x, slot.y, user);
+  });
+
+  // Overflow indicator
+  if (others.length > REMOTE_SLOTS.length) {
+    const overflow = others.length - REMOTE_SLOTS.length;
+    const t = el('text', {
+      x: 240, y: 200,
+      fill: '#FFF',
+      'font-size': 8,
+      'font-family': 'Press Start 2P, monospace',
+      'text-anchor': 'middle',
+      'stroke': '#000', 'stroke-width': 1,
+    });
+    t.textContent = `+${overflow} more`;
+    remoteUsersG.appendChild(t);
+  }
+}
+
+// Draw one remote user at a given slot. Uses a simplified "mini"
+// Steve — same color palette, same sprite data, just scaled down.
+function drawRemoteSteve(parent, x, y, user) {
+  const g = el('g', { transform: `translate(${x},${y})`, opacity: 0.85 });
+
+  // Body sprite at half scale — reuses the same STEVE_BODY data
+  // and CHAR color map. This means every user has the same face
+  // (symmetric smile + blush). Theme differs only in ore color, not
+  // in Steve himself, so this is fine.
+  renderSprite(STEVE_BODY, CHAR, 0, 0, REMOTE_P, g);
+  renderSprite(LEG_STAND, CHAR, 0, STEVE_BODY.length * REMOTE_P, REMOTE_P, g);
+
+  // Nickname label above the head (6px font)
+  const nickText = el('text', {
+    x: 4 * REMOTE_P,       // centered on the 8-col sprite
+    y: -2,                  // above top of head
+    fill: '#FFF',
+    'font-size': 5,
+    'font-family': 'Press Start 2P, monospace',
+    'text-anchor': 'middle',
+    'stroke': '#000',
+    'stroke-width': 0.8,
+    'paint-order': 'stroke',
+  });
+  const shortNick = (user.nick || 'guest').slice(0, 12);
+  nickText.textContent = shortNick;
+  g.appendChild(nickText);
+
+  // State label below the feet
+  const stateText = el('text', {
+    x: 4 * REMOTE_P,
+    y: (STEVE_BODY.length + 2) * REMOTE_P + 8,
+    fill: '#FFD700',
+    'font-size': 5,
+    'font-family': 'Press Start 2P, monospace',
+    'text-anchor': 'middle',
+    'stroke': '#000',
+    'stroke-width': 0.8,
+    'paint-order': 'stroke',
+  });
+  if (user.timerMode === 'focus') {
+    const mins = Math.floor((user.remainingSec || 0) / 60);
+    const secs = (user.remainingSec || 0) % 60;
+    stateText.textContent = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+    stateText.setAttribute('fill', '#8DB360');  // green when focusing
+  } else if (user.timerMode === 'break' || user.timerMode === 'longbreak') {
+    stateText.textContent = 'BREAK';
+    stateText.setAttribute('fill', '#88BBFF');
+  } else {
+    stateText.textContent = 'IDLE';
+    stateText.setAttribute('fill', '#888');
+  }
+  g.appendChild(stateText);
+
+  // Theme indicator — small colored dot showing what they're mining
+  const themeColor = (THEMES[user.theme] && THEMES[user.theme].oreColor) || C.tomatoRed;
+  rect(4 * REMOTE_P - 2, -9, 4, 4, themeColor, g);
+
+  parent.appendChild(g);
 }
 
 // ═══════════════════════════════════════════
@@ -2405,11 +2681,13 @@ function startTimer() {
   if (timerState==='running') {
     timerState='paused'; clearInterval(timerInterval);
     startBtn.textContent='RESUME'; swingActive=false; stopAnimLoop();
+    broadcastMyState();
     return;
   }
   timerState='running'; startBtn.textContent='PAUSE';
   requestNotifPermission();
   updateSceneMode(timerMode === 'focus' ? 'focus' : 'break'); startAnimLoop();
+  broadcastMyState();
 
   timerInterval = setInterval(() => {
     remainingSeconds--;
@@ -2437,6 +2715,8 @@ function startTimer() {
         setMode('focus');
         if (autoFocus) setTimeout(() => startTimer(), 1500);
       }
+      // Notify other users that we're now idle/transitioning
+      broadcastMyState();
     }
   }, 1000);
 }
@@ -2449,6 +2729,7 @@ function skipTimer() {
     const isLongBreak = (completedSessions + 1) % LONG_BREAK_INTERVAL === 0;
     setMode(isLongBreak ? 'longbreak' : 'break');
   } else setMode('focus');
+  broadcastMyState();
 }
 
 function resetTimer() {
@@ -2457,6 +2738,7 @@ function resetTimer() {
   startBtn.textContent='START';
   completedSessions=0; blocksMined=0; saveState();
   buildHotbar(); setMode('focus');
+  broadcastMyState();
 }
 
 // ═══════════════════════════════════════════
@@ -2563,6 +2845,10 @@ function applyTheme(themeId) {
 
   // 5. Update theme-picker button highlights.
   syncThemeButtons();
+
+  // 6. Tell other connected users about our new theme so their
+  //    remote-user renders show the updated hat color immediately.
+  if (typeof broadcastMyState === 'function') broadcastMyState();
 
   saveState();
 }
@@ -2766,6 +3052,38 @@ document.getElementById('resetBtn').addEventListener('click', resetTimer);
 // ═══════════════════════════════════════════
 // Apply companion layout as early as possible (before first paint).
 if (isCompanionMode) document.body.setAttribute('data-layout', 'companion');
+
+// Wire up the nickname input in the settings drawer
+const nickInput = document.getElementById('nickInput');
+const nickHint = document.getElementById('nickHint');
+if (nickInput) {
+  nickInput.value = currentNick;
+  const commitNick = () => {
+    const before = currentNick;
+    currentNick = saveNick(nickInput.value);
+    nickInput.value = currentNick;
+    if (before !== currentNick) {
+      // Tell the server our new identity so other users see it
+      sendPresenceMessage({
+        type: 'hello',
+        nick: currentNick,
+        theme: currentThemeId,
+      });
+      if (nickHint) {
+        nickHint.textContent = 'saved ✓';
+        nickHint.classList.add('saved');
+        setTimeout(() => {
+          nickHint.textContent = '';
+          nickHint.classList.remove('saved');
+        }, 1500);
+      }
+    }
+  };
+  nickInput.addEventListener('blur', commitNick);
+  nickInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); nickInput.blur(); }
+  });
+}
 
 focusValue.textContent = focusMin;
 breakValue.textContent = breakMin;
