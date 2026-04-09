@@ -176,6 +176,7 @@ export class FocusHub {
       timerMode: 'idle',
       remainingSec: 0,
       totalSec: 0,
+      tomatoesToday: 0,
       updatedAt: Date.now(),
     });
 
@@ -209,11 +210,14 @@ export class FocusHub {
     }
 
     if (msg.type === 'hello') {
-      // Identification — update nick + theme, then broadcast presence
+      // Identification — update nick + theme + tomatoesToday, then
+      // broadcast presence so everyone sees the new arrival.
+      const tomatoes = Math.max(0, Math.min(500, parseInt(msg.tomatoesToday, 10) || 0));
       const updated = {
         ...attachment,
         nick: sanitizeNick(msg.nick) || 'guest',
         theme: sanitizeTheme(msg.theme),
+        tomatoesToday: tomatoes,
         updatedAt: Date.now(),
       };
       ws.serializeAttachment(updated);
@@ -229,6 +233,10 @@ export class FocusHub {
       const total = Math.max(0, Math.min(10800, parseInt(msg.totalSec, 10) || 0));
       // Only accept theme update if it's valid — keeps it in sync with client theme
       const theme = msg.theme ? sanitizeTheme(msg.theme) : attachment.theme;
+      // Accept tomatoesToday if provided; otherwise keep prior value.
+      const tomatoes = (msg.tomatoesToday !== undefined)
+        ? Math.max(0, Math.min(500, parseInt(msg.tomatoesToday, 10) || 0))
+        : (attachment.tomatoesToday || 0);
 
       const updated = {
         ...attachment,
@@ -236,6 +244,7 @@ export class FocusHub {
         remainingSec: remaining,
         totalSec: total,
         theme,
+        tomatoesToday: tomatoes,
         updatedAt: Date.now(),
       };
       ws.serializeAttachment(updated);
@@ -272,6 +281,7 @@ export class FocusHub {
         timerMode: a.timerMode,
         remainingSec: a.remainingSec,
         totalSec: a.totalSec,
+        tomatoesToday: a.tomatoesToday || 0,
       });
     }
     return users;
