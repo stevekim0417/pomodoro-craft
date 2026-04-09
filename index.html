@@ -4275,7 +4275,7 @@ const modeLabel = document.getElementById('modeLabel');
 const subtitleText = document.getElementById('subtitleText');
 const startBtn = document.getElementById('startBtn');
 
-function formatTime(s) { return `${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`; }
+function formatTime(s) { const t = Math.max(0, s); return `${String(Math.floor(t/60)).padStart(2,'0')}:${String(t%60).padStart(2,'0')}`; }
 function updateDisplay() {
   timerDisplay.textContent = formatTime(remainingSeconds);
   updateProgress(1 - remainingSeconds/totalSeconds);
@@ -4325,9 +4325,9 @@ function startTimer() {
   broadcastMyState();
 
   timerInterval = setInterval(() => {
-    remainingSeconds--;
+    remainingSeconds = Math.max(0, remainingSeconds - 1);
     updateDisplay();
-    if (remainingSeconds<=0) {
+    if (remainingSeconds <= 0) {
       clearInterval(timerInterval); timerInterval=null;
       timerState='idle'; stopAnimLoop(); swingActive=false;
       startBtn.textContent='START';
