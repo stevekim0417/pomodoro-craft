@@ -1537,13 +1537,15 @@ let myHarvestG = null;
 // ═══════════════════════════════════════════
 let contributionPixelsG = null;
 const contributionPixels = [];
-const CONTRIBUTION_PIXEL_MAX = 1500;
-const CONTRIBUTION_PIXEL_SIZE = 5;
+const CONTRIBUTION_PIXEL_SIZE = 8;  // matches grid cell — fully covers each cell
 
-// Celebration — triggers when the mountain's pixel coverage fills up.
-// The mountain resets after each celebration so a new cycle can begin.
-// With 10 users focusing: ~2-3 hours to fill.  Solo: ~1 full session.
-const CELEBRATION_THRESHOLD = 800;
+// Grid-based coverage system. The mountain surface is divided into
+// 8×8 cells (~1,980 for an 11-layer mountain). A shuffled queue
+// ensures every contribution fills a UNIQUE cell (no duplicates,
+// no coupon-collector waste). When all cells are filled, the
+// original mountain colors are 100% hidden → celebration triggers.
+let mountainGrid = [];   // shuffled list of { x, y, layer }
+let gridFillIndex = 0;   // pointer into mountainGrid
 let celebrationActive = false;
 
 function buildScene() {
@@ -2194,31 +2196,43 @@ function renderMountainBadge() {
 // pixel with a small pop animation. Used by the local dig loop so
 // every swing feels like "I'm adding to the mountain right now."
 // ═══════════════════════════════════════════
+// Build a grid of all 8×8 cells on the mountain, then shuffle.
+// Used as a fill-queue so every contribution covers a unique cell.
+function buildMountainGrid() {
+  const layers = computeMountainLayers(globalMountainBlocks);
+  const baseBlocks = layers * 2 + 3;
+  const cells = [];
+  const S = CONTRIBUTION_PIXEL_SIZE;
+  for (let i = 0; i < layers; i++) {
+    const blocksThisLayer = baseBlocks - i * 2;
+    if (blocksThisLayer <= 0) break;
+    const layerW = blocksThisLayer * MOUNTAIN_BLOCK_W;
+    const layerX = MOUNTAIN_CENTER_X - layerW / 2;
+    const layerY = MOUNTAIN_BASE_Y - (i + 1) * MOUNTAIN_LAYER_H;
+    const cellsW = Math.floor(layerW / S);
+    const cellsH = Math.floor(MOUNTAIN_LAYER_H / S);
+    for (let cy = 0; cy < cellsH; cy++) {
+      for (let cx = 0; cx < cellsW; cx++) {
+        cells.push({ x: layerX + cx * S, y: layerY + cy * S, layer: i });
+      }
+    }
+  }
+  // Fisher-Yates shuffle for uniform randomness
+  for (let i = cells.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [cells[i], cells[j]] = [cells[j], cells[i]];
+  }
+  return cells;
+}
+
+// Pick the NEXT unfilled grid cell. Returns null when the mountain
+// is fully covered (all cells filled) — the caller should check for
+// celebration. Deterministic: no wasted picks, no duplicates.
 function pickMountainSpot() {
   if (!contributionPixelsG) return null;
-  const layers = computeMountainLayers(globalMountainBlocks);
-  if (layers <= 0) return null;
-  // Weight lower layers slightly more (wider, more surface area)
-  const layerRoll = Math.random();
-  const i = Math.floor(Math.pow(layerRoll, 1.6) * layers);
-  const baseBlocks = layers * 2 + 3;
-  const blocksThisLayer = baseBlocks - i * 2;
-  if (blocksThisLayer <= 0) return null;
-  const layerW = blocksThisLayer * MOUNTAIN_BLOCK_W;
-  const layerX = MOUNTAIN_CENTER_X - layerW / 2;
-  const layerY = MOUNTAIN_BASE_Y - (i + 1) * MOUNTAIN_LAYER_H;
-  // Pad away from the 6px highlight (left) and shade (right) bands
-  // as well as the 2px top-edge highlight.
-  const padLeft = 8, padRight = 8, padTop = 3, padBottom = 3;
-  const availW = layerW - padLeft - padRight - CONTRIBUTION_PIXEL_SIZE;
-  const availH = MOUNTAIN_LAYER_H - padTop - padBottom - CONTRIBUTION_PIXEL_SIZE;
-  if (availW <= 0 || availH <= 0) return null;
-  const rawX = layerX + padLeft + Math.random() * availW;
-  const rawY = layerY + padTop + Math.random() * availH;
-  // Snap to 2px grid for crispness
-  const x = Math.round(rawX / 2) * 2;
-  const y = Math.round(rawY / 2) * 2;
-  return { x, y, layer: i };
+  if (mountainGrid.length === 0) return null;
+  if (gridFillIndex >= mountainGrid.length) return null;  // fully covered
+  return mountainGrid[gridFillIndex++];
 }
 
 function colorForNick(nick) {
@@ -2247,15 +2261,12 @@ function addContributionPixel(color, spot) {
     { opacity: 0 },
   ], { duration: 360, easing: 'ease-out', fill: 'forwards' });
   setTimeout(() => glow.remove(), 380);
-  // Track in state (evict oldest if capped)
+  // Track in state — no eviction needed since grid-based fill
+  // guarantees we never exceed mountainGrid.length pixels.
   const entry = { x: s.x, y: s.y, color, el: r };
   contributionPixels.push(entry);
-  if (contributionPixels.length > CONTRIBUTION_PIXEL_MAX) {
-    const old = contributionPixels.shift();
-    if (old.el && old.el.parentNode) old.el.parentNode.removeChild(old.el);
-  }
   // ── Celebration check: is the mountain fully covered? ──
-  if (!celebrationActive && contributionPixels.length >= CELEBRATION_THRESHOLD) {
+  if (!celebrationActive && mountainGrid.length > 0 && gridFillIndex >= mountainGrid.length) {
     triggerCelebration();
   }
   return s;
@@ -2439,7 +2450,11 @@ function triggerCelebration() {
     }
     contributionPixels.length = 0;
     if (contributionPixelsG) contributionPixelsG.innerHTML = '';
-    // Seed a small number so the mountain isn't totally naked
+    // Rebuild the grid (mountain may have grown!) and shuffle for
+    // a fresh coverage pattern. Seed a small number so the mountain
+    // isn't totally naked.
+    mountainGrid = buildMountainGrid();
+    gridFillIndex = 0;
     seedInitialContributionPixels(80);
     celebrationActive = false;
   }, 4500);
@@ -2447,19 +2462,15 @@ function triggerCelebration() {
 
 // Seed the mountain with a sprinkle of pre-existing contribution
 // pixels on first load, so the scene looks like the collective has
-// already been building. Colors are sampled randomly from the hat
-// palette to imply "many different people contributed." These are
-// regular entries in contributionPixels[] and obey the same cap.
+// already been building. Uses addContributionPixel so each seed
+// pixel properly consumes a grid cell (no duplicates). Colors are
+// sampled randomly from the hat palette.
 function seedInitialContributionPixels(count) {
   if (!contributionPixelsG) return;
-  if (contributionPixels.length > 0) return;  // already seeded
-  const seedN = Math.max(0, Math.min(CONTRIBUTION_PIXEL_MAX, count | 0));
+  const seedN = Math.max(0, Math.min(mountainGrid.length - gridFillIndex, count | 0));
   for (let i = 0; i < seedN; i++) {
     const hat = HAT_PALETTE[Math.floor(Math.random() * HAT_PALETTE.length)];
-    const spot = pickMountainSpot();
-    if (!spot) break;
-    const r = rect(spot.x, spot.y, CONTRIBUTION_PIXEL_SIZE, CONTRIBUTION_PIXEL_SIZE, hat.J, contributionPixelsG);
-    contributionPixels.push({ x: spot.x, y: spot.y, color: hat.J, el: r });
+    addContributionPixel(hat.J);
   }
 }
 
@@ -4595,10 +4606,11 @@ buildScene();
 // when we have no live users yet, so the scene never looks broken.
 renderRemoteUsers();
 renderMountainBadge();
-// Seed a sprinkle of pre-existing contribution pixels so new visitors
-// land on a mountain that already looks lived-in. These are purely
-// cosmetic — real contributions still fling in from Steve's digs and
-// remote session bursts.
+// Build the grid-based coverage map and seed a sprinkle of pre-
+// existing contribution pixels so new visitors land on a mountain
+// that already looks lived-in.
+mountainGrid = buildMountainGrid();
+gridFillIndex = 0;
 seedInitialContributionPixels(250);
 renderDailyStats();
 renderSessionLog();
