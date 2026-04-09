@@ -2112,21 +2112,30 @@ function flingContributionPixel(srcX, srcY, color) {
   if (!contributionPixelsG) return;
   const spot = pickMountainSpot();
   if (!spot) return;
-  // A temporary flying chunk (group so we can animate transform)
+  // A temporary flying CHUNK — deliberately 2x the landed pixel so
+  // it reads clearly in the air. Group is anchored at (0,0) and
+  // moved via transform for smooth GPU-accelerated animation.
+  const CHUNK_SIZE = CONTRIBUTION_PIXEL_SIZE * 2;
   const chunk = el('g');
-  rect(0, 0, CONTRIBUTION_PIXEL_SIZE, CONTRIBUTION_PIXEL_SIZE, color, chunk);
-  // White top-edge highlight so the chunk reads in the air
-  rect(0, 0, CONTRIBUTION_PIXEL_SIZE, 1, '#FFFFFF', chunk);
+  // Core color block
+  rect(-CHUNK_SIZE/2, -CHUNK_SIZE/2, CHUNK_SIZE, CHUNK_SIZE, color, chunk);
+  // Dark outline for contrast against sky / mountain
+  rect(-CHUNK_SIZE/2, -CHUNK_SIZE/2, CHUNK_SIZE, 2, '#000000', chunk);
+  rect(-CHUNK_SIZE/2, CHUNK_SIZE/2 - 2, CHUNK_SIZE, 2, '#000000', chunk);
+  // White top highlight to sell the "rising" feeling
+  rect(-CHUNK_SIZE/2 + 2, -CHUNK_SIZE/2 + 2, 3, 1, '#FFFFFF', chunk);
   svg.appendChild(chunk);
-  const targetX = spot.x;
-  const targetY = spot.y;
-  const mx = (srcX + targetX) / 2;
-  const my = Math.min(srcY, targetY) - 70 - Math.random() * 30;
-  const dur = 480 + Math.random() * 140;
+  const targetX = spot.x + CONTRIBUTION_PIXEL_SIZE / 2;
+  const targetY = spot.y + CONTRIBUTION_PIXEL_SIZE / 2;
+  // Parabola: peak ~90px above the higher of source/target, with
+  // some jitter so repeated flings don't overlap identically.
+  const mx = (srcX + targetX) / 2 + (Math.random() - 0.5) * 40;
+  const my = Math.min(srcY, targetY) - 90 - Math.random() * 30;
+  const dur = 520 + Math.random() * 180;
   chunk.animate([
     { transform: `translate(${srcX}px, ${srcY}px) scale(1)   rotate(0deg)`,   opacity: 1 },
-    { transform: `translate(${mx}px,  ${my}px)  scale(1.35) rotate(180deg)`, opacity: 1, offset: 0.5 },
-    { transform: `translate(${targetX}px, ${targetY}px) scale(1) rotate(360deg)`, opacity: 1 },
+    { transform: `translate(${mx}px,  ${my}px)  scale(1.25) rotate(180deg)`, opacity: 1, offset: 0.5 },
+    { transform: `translate(${targetX}px, ${targetY}px) scale(0.6) rotate(360deg)`, opacity: 1 },
   ], { duration: dur, easing: 'ease-in', fill: 'forwards' });
   setTimeout(() => {
     chunk.remove();
@@ -2134,14 +2143,41 @@ function flingContributionPixel(srcX, srcY, color) {
   }, dur);
 }
 
+// Find the on-screen character slot for a remote user by nick so
+// we can anchor contribution animations to their actual position.
+// Returns null if the user isn't currently rendered in a slot
+// (too many users, or slot index exceeds CHAR_SLOTS).
+function findUserSlotByNick(nick) {
+  if (!nick) return null;
+  const others = getEffectiveUsers().filter(u => u.id !== myUserId);
+  const idx = others.findIndex(u => u.nick === nick);
+  if (idx < 0 || idx >= CHAR_SLOTS.length) return null;
+  return CHAR_SLOTS[idx];
+}
+
 // Staggered burst of pixels for a remote user's completed session.
-// Clamps the burst size so a huge session doesn't flood the scene.
+// If the user has a visible character, each pixel ARCS from their
+// character to the mountain — so the viewer can see "priya is
+// contributing right now" instead of pixels just popping from
+// nowhere. Clamped burst size keeps things tidy.
 function addRemoteContributionBurst(nick, count) {
   if (!contributionPixelsG) return;
   const color = colorForNick(nick);
   const n = Math.max(1, Math.min(12, count || 1));
+  const slot = findUserSlotByNick(nick);
   for (let i = 0; i < n; i++) {
-    setTimeout(() => addContributionPixel(color), i * 90);
+    setTimeout(() => {
+      if (slot) {
+        // Arc from the user's character (mid-body) to a mountain spot.
+        // Source y is slightly above the feet so it visually launches
+        // from the character's hands rather than their shoes.
+        const halfBody = (slot.scale || 4) * 7;
+        flingContributionPixel(slot.x, slot.y - halfBody, color);
+      } else {
+        // Fallback: pop in place (user not visible in any slot)
+        addContributionPixel(color);
+      }
+    }, i * 110);
   }
 }
 
