@@ -856,6 +856,7 @@ function recordSession(type, minutes) {
   if (type === 'focus') {
     daily.sessions++;
     daily.focusMin += minutes;
+    if (typeof renderMyHarvestCount === 'function') renderMyHarvestCount();
   } else {
     daily.breakMin += minutes;
   }
@@ -1438,6 +1439,7 @@ let sessionBlocksMined = 0;  // blocks mined in current focus session
 let mountainG = null;
 let contribFxG = null;
 let skyG = null;
+let myHarvestG = null;
 
 // ═══════════════════════════════════════════
 // CONTRIBUTION PIXELS — the collective mosaic
@@ -1670,11 +1672,43 @@ function buildScene() {
 
   positionSteve();
 
+  // Main Steve's harvest counter — same 🍅N format as remote
+  // characters, anchored just below the character's feet so the
+  // entire row of characters has consistent labeling.
+  myHarvestG = el('g');
+  svg.appendChild(myHarvestG);
+  renderMyHarvestCount();
+
   // Effect layers
   itemLayer = el('g'); svg.appendChild(itemLayer);
   particleLayer = el('g'); svg.appendChild(particleLayer);
 
   updateSceneMode(sceneMode);
+}
+
+// Update the main Steve's 🍅N text from daily.sessions. Recreates
+// the text element each call so styling stays in sync with current
+// theme. Hidden when 0 (matches remote-character behavior).
+function renderMyHarvestCount() {
+  if (!myHarvestG) return;
+  myHarvestG.innerHTML = '';
+  const count = (daily && daily.sessions) || 0;
+  if (count <= 0) return;
+  const cx = MAIN_STEVE_X + 4 * P;  // center of main Steve body
+  const cy = GROUND_Y + 18;          // just below the feet
+  const harvestText = el('text', {
+    x: cx,
+    y: cy,
+    'font-size': 16,
+    'font-family': '"Apple Color Emoji", "Segoe UI Emoji", Press Start 2P, monospace',
+    'text-anchor': 'middle',
+    'fill': '#FFD166',
+    'stroke': '#000',
+    'stroke-width': 2,
+    'paint-order': 'stroke',
+  });
+  harvestText.textContent = `🍅${count}`;
+  myHarvestG.appendChild(harvestText);
 }
 
 function buildCloud(parent, x, y, w) {
@@ -1713,6 +1747,23 @@ function buildCampfire(parent, x, y) {
   [[0.5,-1,C.fire1],[1.5,-1,C.fire3],[2.5,-1,C.fire1],
    [1,-2,C.fire2],[2,-2,C.fire2],[1.5,-3,C.fire3]].forEach(([fx,fy,fc]) => {
     const f = rect(x+fx*P, y+fy*P, P, P, fc, parent);
+    f.style.animation = `${Math.random()>.5?'flicker1':'flicker2'} ${.3+Math.random()*.3}s infinite alternate`;
+  });
+}
+
+// Compact campfire for remote characters during break mode. Same
+// shape as buildCampfire but rendered at an arbitrary pixel size so
+// it can scale alongside back/mid/front-row characters. Wood bottom
+// aligns at y; flames flicker above.
+function buildSmallCampfire(parent, x, y, ps) {
+  // Wood pile — 4 wide, 2 tall, alternating colors
+  [[0,0,C.wood],[1,0,C.woodLight],[2,0,C.wood],[3,0,C.woodDark],
+   [0,1,C.woodLight],[1,1,C.wood],[2,1,C.woodDark],[3,1,C.wood]].forEach(([bx,by,c]) =>
+    rect(x+bx*ps, y+by*ps, ps, ps, c, parent));
+  // Flickering flames
+  [[0.5,-1,C.fire1],[1.5,-1,C.fire3],[2.5,-1,C.fire1],
+   [1,-2,C.fire2],[2,-2,C.fire2],[1.5,-3,C.fire3]].forEach(([fx,fy,fc]) => {
+    const f = rect(x+fx*ps, y+fy*ps, ps, ps, fc, parent);
     f.style.animation = `${Math.random()>.5?'flicker1':'flicker2'} ${.3+Math.random()*.3}s infinite alternate`;
   });
 }
@@ -3488,7 +3539,9 @@ function drawRemoteSteveInSlot(parent, slot, user) {
     g.appendChild(pickG);
   }
 
-  // Break mode: 💤 above head
+  // Break mode: 💤 above head + tiny campfire next to the character.
+  // The character keeps their work spot and rests right there — the
+  // campfire pops up beside them so it reads as "took a break here".
   if (isBreak) {
     const zzz = el('text', {
       x: 5 * scale, y: -Math.max(6, scale * 1.5),
@@ -3499,6 +3552,15 @@ function drawRemoteSteveInSlot(parent, slot, user) {
     });
     zzz.textContent = '💤';
     g.appendChild(zzz);
+
+    // Small campfire to the right of the character, sitting on the
+    // grass at character feet level. ps scales with character row
+    // for size legibility — back-row characters get a chunkier fire
+    // than the math would otherwise pick.
+    const ps = Math.max(3, scale);
+    const fireX = bodyW + 4;
+    const fireY = bodyH - 2 * ps;  // wood bottom = character feet
+    buildSmallCampfire(g, fireX, fireY, ps);
   }
 
   // ── Flag right above the character's head (no nickname) ──
