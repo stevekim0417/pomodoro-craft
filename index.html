@@ -624,9 +624,9 @@ const SVG_W = 800, SVG_H = 600, GROUND_Y = 540;
 // ── Collective Mountain geometry ──
 const MOUNTAIN_CENTER_X = 400;    // horizontal center of the pyramid
 const MOUNTAIN_BASE_Y = 420;      // y of the mountain's base row
-const MOUNTAIN_LAYER_H = 20;      // px per vertical layer (taller = more presence)
-const MOUNTAIN_BLOCK_W = 22;      // px per horizontal block in a layer
-const MOUNTAIN_MAX_LAYERS = 16;   // visual cap; beyond this, layers compress
+const MOUNTAIN_LAYER_H = 32;      // px per vertical layer (taller for grandeur)
+const MOUNTAIN_BLOCK_W = 24;      // px per horizontal block in a layer
+const MOUNTAIN_MAX_LAYERS = 13;   // visual cap; 13 layers × 32 = 416px tall
 
 // ── Character rows (front = larger, back = smaller) ──
 // Each row has fixed slot positions. When a user joins, they fill
@@ -1497,13 +1497,18 @@ function buildScene() {
   renderSprite(['..MM..','.MMMM.','MMMMMM','MMmmMM','.MmMM.','..MM..'], {M:C.moon,m:C.moonDark}, 90, 60, 8, moonG);
   svg.appendChild(moonG);
 
-  // ── 6. Remote users layer (BACK row characters — drawn before mountain) ──
-  remoteUsersG = el('g');
-  svg.appendChild(remoteUsersG);
-
-  // ── 7. Central Mountain (collective) — main visual anchor ──
+  // ── 6. Central Mountain (collective) — main visual anchor.
+  //        Drawn BEFORE the remote users so characters can stand on
+  //        its lower slopes (back-row users appear on the grass zone).
   mountainG = el('g');
   svg.appendChild(mountainG);
+
+  // ── 7. Remote users layer — drawn AFTER the mountain so back-row
+  //        characters sit on the mountain slope instead of being hidden
+  //        behind it. Front-row / main Steve are below the mountain
+  //        base anyway so they're unaffected.
+  remoteUsersG = el('g');
+  svg.appendChild(remoteUsersG);
 
   // ── 8. Front grass strip under the main area ──
   const groundG = el('g');
@@ -2654,7 +2659,7 @@ let stateBroadcastTimer = null; // setInterval handle for periodic state updates
 // mountain never looks empty on first visit. Each local focus session
 // bumps this too, even without backend, so the "contribution" feels
 // real immediately.
-let globalMountainBlocks = 80;
+let globalMountainBlocks = 180;
 let myMountainContribution = 0;  // blocks I've added this session (local)
 
 // ═══════════════════════════════════════════
