@@ -112,6 +112,24 @@ export class FocusHub {
       )
     `);
     this.sql.exec(`INSERT OR IGNORE INTO lifetime_totals (id) VALUES (1)`);
+    // mountain_stats: the collective mountain counter (id=1).
+    // `blocks` is the grand total of contribution blocks across all
+    // time. Each completed focus session adds `1 + floor(minutes/10)`
+    // blocks (short sessions = 1, a 25-min session = 3, a 50-min = 6).
+    // Seeded with 80 so the mountain looks established on first launch.
+    this.sql.exec(`
+      CREATE TABLE IF NOT EXISTS mountain_stats (
+        id INTEGER PRIMARY KEY,
+        blocks INTEGER NOT NULL DEFAULT 80
+      )
+    `);
+    this.sql.exec(`INSERT OR IGNORE INTO mountain_stats (id, blocks) VALUES (1, 80)`);
+  }
+
+  // Convert a focus session's minutes to mountain blocks.
+  // Short quick sessions still get at least 1 block so every focus counts.
+  blocksFromMinutes(minutes) {
+    return 1 + Math.floor(Math.max(0, minutes) / 10);
   }
 
   async fetch(request) {
@@ -295,6 +313,11 @@ export class FocusHub {
        ORDER BY id DESC LIMIT 10`
     )];
 
+    // Mountain total — the collective hero counter
+    const mountainRow = this.sql.exec(
+      `SELECT blocks FROM mountain_stats WHERE id = 1`
+    ).one() || { blocks: 80 };
+
     return json({
       onlineNow: this.onlineCount(),
       users: this.collectUsers(),
@@ -305,6 +328,9 @@ export class FocusHub {
       lifetime: {
         sessions: lifeRow.sessions,
         minutes: lifeRow.minutes,
+      },
+      mountain: {
+        blocks: mountainRow.blocks,
       },
       feed: feedRows.map(r => ({
         minutes: r.minutes,
@@ -354,6 +380,17 @@ export class FocusHub {
       minutes
     );
 
+    // Add blocks to the collective mountain
+    const blocksEarned = this.blocksFromMinutes(minutes);
+    this.sql.exec(
+      `UPDATE mountain_stats SET blocks = blocks + ? WHERE id = 1`,
+      blocksEarned
+    );
+    const mountainRow = this.sql.exec(
+      `SELECT blocks FROM mountain_stats WHERE id = 1`
+    ).one();
+    const newMountainTotal = mountainRow.blocks;
+
     // Trim old sessions — keep only last 1000 to bound storage
     this.sql.exec(
       `DELETE FROM sessions
@@ -362,13 +399,14 @@ export class FocusHub {
        )`
     );
 
-    // Broadcast the new session to everyone connected live
+    // Broadcast the new session AND the updated mountain total
     this.broadcast({
       type: 'session',
-      session: { minutes, theme, nick, at: now },
+      session: { minutes, theme, nick, at: now, blocks: blocksEarned },
+      mountain: { blocks: newMountainTotal },
     });
 
-    return json({ ok: true });
+    return json({ ok: true, mountain: { blocks: newMountainTotal, earned: blocksEarned } });
   }
 }
 
