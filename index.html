@@ -624,9 +624,9 @@ const SVG_W = 800, SVG_H = 600, GROUND_Y = 540;
 // ── Collective Mountain geometry ──
 const MOUNTAIN_CENTER_X = 400;    // horizontal center of the pyramid
 const MOUNTAIN_BASE_Y = 420;      // y of the mountain's base row
-const MOUNTAIN_LAYER_H = 16;      // px per vertical layer (block height)
-const MOUNTAIN_BLOCK_W = 20;      // px per horizontal block in a layer
-const MOUNTAIN_MAX_LAYERS = 15;   // visual cap; beyond this, layers compress
+const MOUNTAIN_LAYER_H = 20;      // px per vertical layer (taller = more presence)
+const MOUNTAIN_BLOCK_W = 22;      // px per horizontal block in a layer
+const MOUNTAIN_MAX_LAYERS = 16;   // visual cap; beyond this, layers compress
 
 // ── Character rows (front = larger, back = smaller) ──
 // Each row has fixed slot positions. When a user joins, they fill
@@ -1420,21 +1420,42 @@ function buildScene() {
   rect(0, 0, SVG_W, GROUND_Y, '#8FD4EC', skyG);
   svg.appendChild(skyG);
 
-  // ── 2. Distant mountain silhouettes (parallax, behind the main one) ──
-  const distantG = el('g', { opacity: 0.35 });
-  // Three far mountains
-  drawDistantMountain(distantG,  60, GROUND_Y - 40, 180, 110, '#6B8FAE');
-  drawDistantMountain(distantG, 250, GROUND_Y - 30, 220, 140, '#557A99');
-  drawDistantMountain(distantG, 530, GROUND_Y - 50, 260, 150, '#6B8FAE');
+  // ── 2a. Far-far background mountain range (3rd parallax layer,
+  //        very faded, reaches high into the sky corners) ──
+  const farG = el('g', { opacity: 0.22 });
+  drawDistantMountain(farG,    0,  80, 340, 260, '#A8BCD2');
+  drawDistantMountain(farG,  260,  60, 320, 310, '#95AEC6');
+  drawDistantMountain(farG,  540,  90, 360, 250, '#A8BCD2');
+  drawDistantMountain(farG,  750,  70, 280, 300, '#95AEC6');
+  svg.appendChild(farG);
+
+  // ── 2b. Middle-distance mountain range (2nd parallax, taller
+  //        than the original layer so it fills the sky mid-zone) ──
+  const distantG = el('g', { opacity: 0.42 });
+  drawDistantMountain(distantG,  20, 220, 240, 170, '#6B8FAE');
+  drawDistantMountain(distantG, 190, 180, 280, 210, '#557A99');
+  drawDistantMountain(distantG, 440, 200, 300, 200, '#6B8FAE');
+  drawDistantMountain(distantG, 640, 170, 260, 230, '#557A99');
   svg.appendChild(distantG);
 
-  // ── 3. Clouds scattered across the sky ──
+  // ── 3. Clouds scattered across the sky (8 puffs across full width) ──
   const cloudsG = el('g');
-  buildCloud(cloudsG,  60, 40, 70);
-  buildCloud(cloudsG, 260, 20, 80);
-  buildCloud(cloudsG, 480, 55, 60);
-  buildCloud(cloudsG, 640, 30, 75);
+  buildCloud(cloudsG,  30,  30, 55);
+  buildCloud(cloudsG, 150,  70, 45);
+  buildCloud(cloudsG, 280,  20, 75);
+  buildCloud(cloudsG, 420,  95, 40);
+  buildCloud(cloudsG, 510,  50, 55);
+  buildCloud(cloudsG, 590,  18, 60);
+  buildCloud(cloudsG, 700, 100, 45);
+  buildCloud(cloudsG,  80, 140, 50);  // cloud near lower-left sky
   svg.appendChild(cloudsG);
+
+  // ── 3b. Birds — three small silhouettes scattered in the sky ──
+  const birdsG = el('g');
+  drawBird(birdsG, 110,  95);
+  drawBird(birdsG, 380, 140);
+  drawBird(birdsG, 640, 120);
+  svg.appendChild(birdsG);
 
   // ── 4. Sun (round, top-right) ──
   sunG = el('g');
@@ -1602,6 +1623,23 @@ function buildCampfire(parent, x, y) {
     const f = rect(x+fx*P, y+fy*P, P, P, fc, parent);
     f.style.animation = `${Math.random()>.5?'flicker1':'flicker2'} ${.3+Math.random()*.3}s infinite alternate`;
   });
+}
+
+// ═══════════════════════════════════════════
+// BIRD — small silhouette flying in the sky
+// A 13×3 pixel seagull-shape bird for decorative sky detail.
+// ═══════════════════════════════════════════
+function drawBird(parent, x, y) {
+  const g = el('g', { opacity: 0.6 });
+  const c = '#2A3A50';
+  // Classic "M" silhouette
+  rect(x,      y,     3, 1, c, g);
+  rect(x + 2,  y + 1, 2, 1, c, g);
+  rect(x + 4,  y + 2, 2, 1, c, g);
+  rect(x + 6,  y + 2, 2, 1, c, g);
+  rect(x + 7,  y + 1, 2, 1, c, g);
+  rect(x + 10, y,     3, 1, c, g);
+  parent.appendChild(g);
 }
 
 // ═══════════════════════════════════════════
