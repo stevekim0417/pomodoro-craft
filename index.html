@@ -1541,6 +1541,12 @@ const contributionPixels = [];
 const CONTRIBUTION_PIXEL_MAX = 1500;
 const CONTRIBUTION_PIXEL_SIZE = 5;
 
+// Celebration — triggers when the mountain's pixel coverage fills up.
+// The mountain resets after each celebration so a new cycle can begin.
+// With 10 users focusing: ~2-3 hours to fill.  Solo: ~1 full session.
+const CELEBRATION_THRESHOLD = 800;
+let celebrationActive = false;
+
 function buildScene() {
   svg.innerHTML = '';
 
@@ -2249,6 +2255,10 @@ function addContributionPixel(color, spot) {
     const old = contributionPixels.shift();
     if (old.el && old.el.parentNode) old.el.parentNode.removeChild(old.el);
   }
+  // ── Celebration check: is the mountain fully covered? ──
+  if (!celebrationActive && contributionPixels.length >= CELEBRATION_THRESHOLD) {
+    triggerCelebration();
+  }
   return s;
 }
 
@@ -2323,6 +2333,117 @@ function addRemoteContributionBurst(nick, count) {
       }
     }, i * 110);
   }
+}
+
+// ═══════════════════════════════════════════
+// CELEBRATION — 🎉 mountain fully covered!
+// ─────────────────────────────────────────
+// When contributionPixels reaches CELEBRATION_THRESHOLD, the mountain
+// is "complete." This triggers:
+//   1. Big confetti explosion from the mountain peak
+//   2. 🙌 hooray emoji above every character (remote + main Steve)
+//   3. "🎉 MOUNTAIN COMPLETE!" text overlay
+//   4. After 4 seconds: pixels reset, new cycle begins
+// ═══════════════════════════════════════════
+function triggerCelebration() {
+  if (celebrationActive) return;
+  celebrationActive = true;
+
+  const layers = computeMountainLayers(globalMountainBlocks);
+  const peakY = MOUNTAIN_BASE_Y - layers * MOUNTAIN_LAYER_H;
+  const cleanupQueue = [];   // DOM elements to remove after the show
+
+  // ── 1. Big overlay text ──
+  const overlay = el('text', {
+    x: MOUNTAIN_CENTER_X, y: SVG_H / 2 - 20,
+    'font-size': 22,
+    'font-family': 'Press Start 2P, monospace',
+    'text-anchor': 'middle',
+    fill: '#FFD700',
+    stroke: '#000', 'stroke-width': 4, 'paint-order': 'stroke',
+  });
+  overlay.textContent = '🎉 MOUNTAIN COMPLETE!';
+  svg.appendChild(overlay);
+  overlay.style.transformOrigin = `${MOUNTAIN_CENTER_X}px ${SVG_H / 2 - 20}px`;
+  overlay.animate([
+    { transform: 'scale(0)', opacity: 0 },
+    { transform: 'scale(1.4)', opacity: 1, offset: 0.35 },
+    { transform: 'scale(1)', opacity: 1 },
+  ], { duration: 700, fill: 'forwards' });
+  cleanupQueue.push(overlay);
+
+  // ── 2. Confetti explosion from the peak ──
+  const confettiColors = ['#FF6B6B','#FFD93D','#6BCB77','#4D96FF','#FF8FE0','#FFB347','#FFFFFF','#E63946','#7B2FF7'];
+  for (let i = 0; i < 70; i++) {
+    setTimeout(() => {
+      const color = confettiColors[Math.floor(Math.random() * confettiColors.length)];
+      const size = 4 + Math.random() * 6;
+      const c = el('rect', {
+        x: 0, y: 0, width: size, height: size, fill: color, rx: 1,
+      });
+      svg.appendChild(c);
+      cleanupQueue.push(c);
+      const startX = MOUNTAIN_CENTER_X + (Math.random() - 0.5) * 80;
+      const startY = peakY - 10;
+      const endX = startX + (Math.random() - 0.5) * 600;
+      const endY = startY + 150 + Math.random() * 350;
+      const dur = 1800 + Math.random() * 1400;
+      c.animate([
+        { transform: `translate(${startX}px,${startY}px) rotate(0deg)`, opacity: 1 },
+        { transform: `translate(${(startX+endX)/2}px,${(startY+endY*0.4)}px) rotate(${180+Math.random()*360}deg)`, opacity: 1, offset: 0.5 },
+        { transform: `translate(${endX}px,${endY}px) rotate(${360+Math.random()*720}deg)`, opacity: 0 },
+      ], { duration: dur, easing: 'cubic-bezier(.2,.8,.3,1)', fill: 'forwards' });
+    }, i * 25);
+  }
+
+  // ── 3. 🙌 hooray on every character ──
+  const others = getEffectiveUsers().filter(u => u.id !== myUserId);
+  others.slice(0, CHAR_SLOTS.length).forEach((user, i) => {
+    const slot = CHAR_SLOTS[i];
+    const h = el('text', {
+      x: slot.x, y: slot.y - 14 * slot.scale - 8,
+      'font-size': slot.scale * 5,
+      'text-anchor': 'middle', 'font-family': 'sans-serif',
+    });
+    h.textContent = '🙌';
+    svg.appendChild(h);
+    h.animate([
+      { transform: 'translateY(0)', opacity: 0 },
+      { transform: 'translateY(-12px)', opacity: 1, offset: 0.35 },
+      { transform: 'translateY(-8px)', opacity: 1 },
+    ], { duration: 500, fill: 'forwards' });
+    cleanupQueue.push(h);
+  });
+  // Main Steve hooray
+  const mainH = el('text', {
+    x: MAIN_STEVE_X + 4 * P, y: GROUND_Y - 14 * P - 12,
+    'font-size': 28, 'text-anchor': 'middle', 'font-family': 'sans-serif',
+  });
+  mainH.textContent = '🙌';
+  svg.appendChild(mainH);
+  mainH.animate([
+    { transform: 'translateY(0)', opacity: 0 },
+    { transform: 'translateY(-18px)', opacity: 1, offset: 0.35 },
+    { transform: 'translateY(-12px)', opacity: 1 },
+  ], { duration: 500, fill: 'forwards' });
+  cleanupQueue.push(mainH);
+
+  // ── 4. Clean up after 4.5 seconds — reset pixels for new cycle ──
+  setTimeout(() => {
+    // Remove all celebration elements
+    for (const e of cleanupQueue) {
+      if (e && e.parentNode) e.parentNode.removeChild(e);
+    }
+    // Clear contribution pixels for a fresh cycle
+    for (const p of contributionPixels) {
+      if (p.el && p.el.parentNode) p.el.parentNode.removeChild(p.el);
+    }
+    contributionPixels.length = 0;
+    if (contributionPixelsG) contributionPixelsG.innerHTML = '';
+    // Seed a small number so the mountain isn't totally naked
+    seedInitialContributionPixels(80);
+    celebrationActive = false;
+  }, 4500);
 }
 
 // Seed the mountain with a sprinkle of pre-existing contribution
