@@ -130,7 +130,10 @@ export class FocusHub {
     return json({ error: 'not found' }, 404);
   }
 
-  // ─── WebSocket presence (counts as "focusing now") ────────────
+  // ─── WebSocket presence — full per-user state tracking ────────
+  // Each connected user has attached state on their WebSocket:
+  //   { id, nick, theme, timerMode, remainingSec, totalSec, updatedAt }
+  // Stored via ws.serializeAttachment() so it survives hibernation.
   handlePresence(request) {
     const upgradeHeader = request.headers.get('Upgrade');
     if (upgradeHeader !== 'websocket') {
@@ -138,44 +141,123 @@ export class FocusHub {
     }
 
     const { 0: client, 1: server } = new WebSocketPair();
-    // Hibernation API: DO can sleep between messages, zero idle cost
     this.state.acceptWebSocket(server);
 
-    // Send initial count + broadcast updated count to everyone
-    const count = this.onlineCount();
-    server.send(JSON.stringify({ type: 'welcome', onlineNow: count }));
-    this.broadcast({ type: 'count', onlineNow: count });
+    // Assign a unique id so clients can distinguish users with same nick.
+    const id = crypto.randomUUID().slice(0, 8);
+    server.serializeAttachment({
+      id,
+      nick: 'guest',
+      theme: 'tomato',
+      timerMode: 'idle',
+      remainingSec: 0,
+      totalSec: 0,
+      updatedAt: Date.now(),
+    });
+
+    // Send welcome with current user list. The hello message will
+    // overwrite our placeholder attachment once received.
+    server.send(JSON.stringify({
+      type: 'welcome',
+      yourId: id,
+      users: this.collectUsers(),
+    }));
+    // Do NOT broadcast yet — wait for the hello so we don't show
+    // "guest" temporarily. Other users see the new user when they
+    // identify themselves.
 
     return new Response(null, { status: 101, webSocket: client });
   }
 
-  // Hibernation handlers (fired when WS receives a message or closes)
+  // Hibernation-aware message handler
   webSocketMessage(ws, message) {
-    // Clients can ping with "ping" to keep presence fresh
+    let msg;
     try {
-      const data = typeof message === 'string' ? message : '';
-      if (data === 'ping') {
-        ws.send(JSON.stringify({ type: 'pong' }));
-      }
-    } catch (e) { /* ignore */ }
+      msg = typeof message === 'string' ? JSON.parse(message) : null;
+    } catch (e) { return; }
+    if (!msg || typeof msg !== 'object') return;
+
+    const attachment = ws.deserializeAttachment() || {};
+
+    if (msg.type === 'ping') {
+      try { ws.send(JSON.stringify({ type: 'pong' })); } catch (e) {}
+      return;
+    }
+
+    if (msg.type === 'hello') {
+      // Identification — update nick + theme, then broadcast presence
+      const updated = {
+        ...attachment,
+        nick: sanitizeNick(msg.nick) || 'guest',
+        theme: sanitizeTheme(msg.theme),
+        updatedAt: Date.now(),
+      };
+      ws.serializeAttachment(updated);
+      this.broadcastUsers();
+      return;
+    }
+
+    if (msg.type === 'state') {
+      // Timer state update
+      const timerMode = ['idle', 'focus', 'break', 'longbreak'].includes(msg.timerMode)
+        ? msg.timerMode : 'idle';
+      const remaining = Math.max(0, Math.min(10800, parseInt(msg.remainingSec, 10) || 0));
+      const total = Math.max(0, Math.min(10800, parseInt(msg.totalSec, 10) || 0));
+      // Only accept theme update if it's valid — keeps it in sync with client theme
+      const theme = msg.theme ? sanitizeTheme(msg.theme) : attachment.theme;
+
+      const updated = {
+        ...attachment,
+        timerMode,
+        remainingSec: remaining,
+        totalSec: total,
+        theme,
+        updatedAt: Date.now(),
+      };
+      ws.serializeAttachment(updated);
+      this.broadcastUsers();
+      return;
+    }
   }
 
   webSocketClose(ws, code, reason, wasClean) {
     try { ws.close(code, 'closing'); } catch (e) { /* already closed */ }
-    // Broadcast the new (lower) count to remaining clients
-    const count = this.onlineCount();
-    this.broadcast({ type: 'count', onlineNow: count });
+    // Broadcast updated user list to remaining clients
+    this.broadcastUsers();
   }
 
   webSocketError(ws, error) {
     try { ws.close(1011, 'error'); } catch (e) { /* ignore */ }
-    const count = this.onlineCount();
-    this.broadcast({ type: 'count', onlineNow: count });
+    this.broadcastUsers();
   }
 
   onlineCount() {
-    // After hibernation wake-up, use getWebSockets() for the real set
     return this.state.getWebSockets().length;
+  }
+
+  collectUsers() {
+    const users = [];
+    for (const ws of this.state.getWebSockets()) {
+      const a = ws.deserializeAttachment();
+      if (!a) continue;
+      users.push({
+        id: a.id,
+        nick: a.nick,
+        theme: a.theme,
+        timerMode: a.timerMode,
+        remainingSec: a.remainingSec,
+        totalSec: a.totalSec,
+      });
+    }
+    return users;
+  }
+
+  broadcastUsers() {
+    const users = this.collectUsers();
+    const payload = JSON.stringify({ type: 'users', users });
+    for (const ws of this.state.getWebSockets()) {
+      try { ws.send(payload); } catch (e) { /* dead socket */ }
+    }
   }
 
   broadcast(msg) {
@@ -208,6 +290,7 @@ export class FocusHub {
 
     return json({
       onlineNow: this.onlineCount(),
+      users: this.collectUsers(),
       today: {
         sessions: dayRow.sessions,
         minutes: dayRow.minutes,
