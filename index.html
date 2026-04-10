@@ -108,10 +108,10 @@ body {
   transition: background var(--transition-speed);
 }
 .scene-wrap svg { width: 100%; height: 100%; display: block; }
-.timer-section { text-align: center; padding: 12px 0 8px; }
+.timer-section { text-align: center; padding: 18px 0 12px; }
 .mode-label { font-size: 10px; color: var(--accent-light); margin-bottom: 8px; letter-spacing: 2px; transition: color var(--transition-speed); }
-.timer-display { font-size: 48px; color: #FFF; text-shadow: 4px 4px 0 #000; letter-spacing: 4px; margin: 8px 0; font-variant-numeric: tabular-nums; }
-.progress-bar { display: flex; gap: 3px; margin: 10px 0 6px; justify-content: center; }
+.timer-display { font-size: 48px; color: #FFF; text-shadow: 4px 4px 0 #000; letter-spacing: 4px; margin: 12px 0; font-variant-numeric: tabular-nums; }
+.progress-bar { display: flex; gap: 3px; margin: 15px 0 10px; justify-content: center; }
 .progress-block { width: 20px; height: 20px; border: 2px solid; border-color: #AAA #555 #555 #AAA; background: #6B6B6B; transition: background .3s, border-color .3s; }
 .progress-block.filled { background: var(--accent); border-color: var(--accent-light) #3A5A1A #3A5A1A var(--accent-light); }
 .progress-block.active { animation: blockPulse .6s infinite alternate; }
@@ -161,7 +161,7 @@ body {
 .log-toggle:hover { color: #FFF; }
 .log-empty { text-align: center; padding: 8px; font-size: 6px; color: #888; }
 
-.controls { display: flex; gap: 8px; justify-content: center; margin: 10px 0 14px; }
+.controls { display: flex; gap: 8px; justify-content: center; margin: 16px 0 20px; }
 .mc-btn {
   font-family: 'Press Start 2P', monospace; font-size: 11px; padding: 10px 20px;
   background: #8B8B8B; border: 3px solid; border-color: #C6C6C6 #555 #555 #C6C6C6;
@@ -189,7 +189,7 @@ body {
   color: var(--text); cursor: pointer; padding: 0;
 }
 .mc-btn-sm:active { border-color: #555 #C6C6C6 #C6C6C6 #555; }
-.hotbar { display: flex; justify-content: center; gap: 4px; margin: 10px 0 4px; }
+.hotbar { display: flex; justify-content: center; gap: 4px; margin: 15px 0 6px; }
 .hotbar-slot {
   width: 36px; height: 36px; background: #555; border: 2px solid;
   border-color: #2A2A2A #7A7A7A #7A7A7A #2A2A2A;
@@ -302,7 +302,7 @@ body {
   justify-content: center;
   flex-wrap: wrap;
   gap: 6px;
-  margin: 10px 0 12px;
+  margin: 16px 0 18px;
 }
 .status-pill {
   display: inline-block;
@@ -332,7 +332,7 @@ body {
 /* ── Details panel toggle — Minecraft-style chunky button ── */
 .details-toggle {
   display: block;
-  margin: 4px auto 12px;
+  margin: 6px auto 18px;
   padding: 8px 18px;
   background: #6B6B6B;
   border: 3px solid #1a1a1a;
