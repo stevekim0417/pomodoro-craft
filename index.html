@@ -69,7 +69,8 @@
 }
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body {
-  min-height: 100vh; display: flex; justify-content: center; align-items: center;
+  min-height: 100vh; display: flex; justify-content: center; align-items: flex-start;
+  padding: 20px 0;
   background: linear-gradient(180deg, var(--sky-top), var(--sky-bottom));
   transition: background var(--transition-speed);
   font-family: 'Press Start 2P', monospace; image-rendering: pixelated; overflow-x: hidden;
@@ -573,14 +574,38 @@ body[data-layout="companion"] .timer-display { font-size: 36px; }
 body[data-layout="companion"] .mode-label,
 body[data-layout="companion"] .session-indicator { font-size: 9px; }
 
+/* ── Mobile (narrow screens) ── */
 @media (max-width: 540px) {
+  .title { margin-bottom: 10px; }
+  .title h1 { font-size: 20px; letter-spacing: 2px; }
+  .title .subtitle { font-size: 10px; letter-spacing: 2px; }
   .timer-display { font-size: 36px; }
-  .title h1 { font-size: 20px; }
-  .title .subtitle { font-size: 11px; }
+  .scene-wrap { aspect-ratio: auto; max-height: 45vh; }
+  .inner { padding: 8px; }
   .settings { gap: 12px; }
   .mc-btn { font-size: 9px; padding: 8px 14px; }
+  .progress-block { width: 14px; height: 14px; }
+  .status-pill { font-size: 6px; padding: 4px 6px; }
   .daily-stats { gap: 4px 10px; }
+  .details-toggle { font-size: 7px; padding: 6px 12px; }
   .lofi-url-input { width: 150px; }
+}
+
+/* ── Short viewport (landscape phone, split-screen tablet) ── */
+@media (max-height: 700px) {
+  .scene-wrap { aspect-ratio: auto; max-height: 30vh; }
+  .title { margin-bottom: 4px; }
+  .title h1 { font-size: 18px; }
+  .timer-display { font-size: 28px; margin: 2px 0; }
+  .progress-bar { margin: 6px 0; }
+  .progress-block { width: 12px; height: 12px; }
+  .controls { margin: 6px 0; }
+  .mc-btn { padding: 6px 12px; font-size: 8px; }
+}
+
+/* ── Tablet (medium screens) ── */
+@media (min-width: 541px) and (max-width: 1024px) {
+  .scene-wrap { max-height: 50vh; }
 }
 </style>
 </head>
@@ -594,7 +619,7 @@ body[data-layout="companion"] .session-indicator { font-size: 9px; }
   <div class="container">
     <div class="inner">
       <div class="scene-wrap">
-        <svg id="scene" viewBox="0 0 800 600" preserveAspectRatio="xMidYMid slice"></svg>
+        <svg id="scene" viewBox="0 0 800 600" preserveAspectRatio="xMidYMid meet"></svg>
       </div>
       <div class="timer-section">
         <div class="mode-label" id="modeLabel">FOCUS</div>
