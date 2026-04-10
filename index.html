@@ -613,31 +613,43 @@ body[data-layout="companion"] .session-indicator { font-size: 9px; }
   .title h1 { font-size: 18px; }
   .title .subtitle { font-size: 9px; }
   .inner {
-    display: grid !important;
-    grid-template-columns: 55% 1fr !important;
-    grid-template-rows: auto;
-    gap: 4px 12px;
-    padding: 6px;
+    display: flex !important;
+    flex-direction: row !important;
+    gap: 16px;
+    padding: 8px;
+    align-items: stretch;
   }
+  /* ── Left: scene ── */
   .scene-wrap {
-    grid-column: 1;
-    grid-row: 1 / 20;
+    flex: 0 0 55%;
     aspect-ratio: auto;
-    height: 100%;
-    max-height: 60vh;
+    max-height: 70vh;
     margin-bottom: 0;
   }
-  .timer-section { grid-column: 2; }
-  .timer-display { font-size: 32px; margin: 2px 0; }
-  .progress-bar { margin: 4px 0; }
-  .progress-block { width: 12px; height: 12px; }
-  .status-pills { grid-column: 2; }
-  .status-pill { font-size: 6px; padding: 3px 5px; }
-  .controls { grid-column: 2; margin: 4px 0; }
-  .mc-btn { font-size: 8px; padding: 6px 10px; }
-  .details-toggle { grid-column: 2; font-size: 7px; padding: 4px 10px; margin: 4px auto; }
-  .details-panel { grid-column: 2; }
-  .hotbar { justify-content: flex-start; }
+  /* ── Right: vertically centered column ── */
+  .controls-column {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 6px;
+    text-align: center;
+    overflow-y: auto;
+  }
+  .timer-section { width: 100%; padding: 0; }
+  .mode-label { font-size: 9px; margin-bottom: 2px; }
+  .session-indicator { font-size: 8px; }
+  .timer-display { font-size: 42px; margin: 2px 0; letter-spacing: 2px; }
+  .progress-bar { margin: 4px auto; justify-content: center; }
+  .progress-block { width: 14px; height: 14px; }
+  .hotbar { margin: 2px auto; justify-content: center; }
+  .status-pills { justify-content: center; margin: 4px 0; }
+  .status-pill { font-size: 7px; padding: 4px 8px; }
+  .controls { justify-content: center; margin: 4px 0; gap: 6px; }
+  .mc-btn { font-size: 10px; padding: 8px 16px; }
+  .details-toggle { font-size: 8px; padding: 6px 14px; margin: 4px auto; }
+  .details-panel { max-height: 30vh; overflow-y: auto; width: 100%; }
 }
 </style>
 </head>
@@ -653,34 +665,27 @@ body[data-layout="companion"] .session-indicator { font-size: 9px; }
       <div class="scene-wrap">
         <svg id="scene" viewBox="0 0 800 600" preserveAspectRatio="xMidYMid slice"></svg>
       </div>
-      <div class="timer-section">
-        <div class="mode-label" id="modeLabel">FOCUS</div>
-        <div class="session-indicator" id="sessionIndicator"></div>
-        <div class="timer-display" id="timerDisplay">25:00</div>
-        <div class="progress-bar" id="progressBar"></div>
-        <div class="hotbar" id="hotbar"></div>
-      </div>
-      <!-- Three-pill always-visible status bar: live count, today's
-           tomatoes, current streak. Replaces the old verbose social
-           proof + harvest + streak rows. -->
-      <div class="status-pills" id="statusPills"></div>
-      <!-- Legacy verbose social-proof element kept hidden (other code
-           still calls updateSocialProof which now writes to statusPills). -->
-      <div class="social-proof" id="socialProof" style="display:none"></div>
-      <!-- task input removed — user found it unnecessary clutter -->
-      <div class="controls">
-        <button class="mc-btn primary" id="startBtn">START</button>
-        <button class="mc-btn" id="skipBtn">SKIP</button>
-        <button class="mc-btn danger" id="resetBtn">RESET</button>
-      </div>
-      <!-- Reveal-on-click button for everything below the essentials. -->
-      <button class="details-toggle" id="detailsToggle" onclick="toggleDetails()">
-        📊 STATS &amp; SETTINGS ▼
-      </button>
-      <!-- Collapsed by default. Contains: mountain meta, FOCUS/BREAK
-           /LONG controls, hotbar, full daily stats, share button,
-           live feed, lofi player. -->
-      <div class="details-panel collapsed" id="detailsPanel">
+      <!-- Controls column: wraps all right-side elements so landscape
+           mode can vertically center them as a single flex column. -->
+      <div class="controls-column">
+        <div class="timer-section">
+          <div class="mode-label" id="modeLabel">FOCUS</div>
+          <div class="session-indicator" id="sessionIndicator"></div>
+          <div class="timer-display" id="timerDisplay">25:00</div>
+          <div class="progress-bar" id="progressBar"></div>
+          <div class="hotbar" id="hotbar"></div>
+        </div>
+        <div class="status-pills" id="statusPills"></div>
+        <div class="social-proof" id="socialProof" style="display:none"></div>
+        <div class="controls">
+          <button class="mc-btn primary" id="startBtn">START</button>
+          <button class="mc-btn" id="skipBtn">SKIP</button>
+          <button class="mc-btn danger" id="resetBtn">RESET</button>
+        </div>
+        <button class="details-toggle" id="detailsToggle" onclick="toggleDetails()">
+          📊 STATS &amp; SETTINGS ▼
+        </button>
+        <div class="details-panel collapsed" id="detailsPanel">
         <!-- mountain badge removed — user found it unnecessary -->
         <div class="live-feed" id="liveFeed"></div>
         <div class="settings">
@@ -726,7 +731,7 @@ body[data-layout="companion"] .session-indicator { font-size: 9px; }
           </div>
           <!-- ORE THEME picker removed — fixed to tomato -->
         </div>
-      </div>
+      </div><!-- /controls-column -->
     </div>
   </div>
   <div class="footer-links">
