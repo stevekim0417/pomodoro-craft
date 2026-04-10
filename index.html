@@ -1789,13 +1789,15 @@ function buildScene() {
   breakLayerG = el('g', {opacity:0});
   svg.appendChild(breakLayerG);
   campfireG = el('g');
-  buildCampfire(campfireG, MAIN_STEVE_X + 60, GROUND_Y-4*P);
+  // Campfire sits just to the right of where Steve digs so they
+  // can rest in place without moving to a different spot.
+  buildCampfire(campfireG, STEVE_DIG_X + 8*P + 12, GROUND_Y-4*P);
   breakLayerG.appendChild(campfireG);
 
   // Wolf — sits on the other side of main Steve during break
   wolfG = el('g');
   renderSprite(WOLF1, WOLF_COLORS, 0, 0, 6, wolfG);
-  wolfG.setAttribute('transform', `translate(${MAIN_STEVE_X - 80},${GROUND_Y-7*P})`);
+  wolfG.setAttribute('transform', `translate(${STEVE_DIG_X - 60},${GROUND_Y-7*P})`);
   breakLayerG.appendChild(wolfG);
 
   // ── 13. Contribution FX layer (blocks flying to mountain) ──
@@ -2749,7 +2751,9 @@ function updateSceneMode(mode) {
     focusLayerG.setAttribute('opacity', 0);
     breakLayerG.setAttribute('opacity', 1);
     steveArmG.setAttribute('opacity', 0);
-    steveX = 556;  // main plot, left of campfire at 590
+    // Stay in place — don't move Steve to a different position.
+    // The user wants to rest right where they were working.
+    if (steveX === 0 || steveX === 200) steveX = MAIN_STEVE_X;
     updateSteveSprite('sit');
     chickenX = -40; chickenVisible = false;
     wolfFrame = 0; fireflyList = [];
