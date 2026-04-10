@@ -4379,15 +4379,46 @@ function setMode(mode) {
   updateSceneMode(timerState === 'running' ? (isBreak ? 'break' : 'focus') : (isBreak ? 'break' : 'idle'));
 }
 
+// ═══════════════════════════════════════════
+// SCREEN WAKE LOCK — prevent iPad/phone from sleeping during focus
+// ─────────────────────────────────────────
+// Uses the Screen Wake Lock API (Safari 16.4+, Chrome, Edge).
+// Acquired when timer starts, released on pause/stop. Re-acquired
+// automatically when the page regains visibility (tab switch back).
+// ═══════════════════════════════════════════
+let wakeLockSentinel = null;
+async function acquireWakeLock() {
+  if (!('wakeLock' in navigator)) return;
+  try {
+    wakeLockSentinel = await navigator.wakeLock.request('screen');
+    wakeLockSentinel.addEventListener('release', () => { wakeLockSentinel = null; });
+  } catch (e) { /* user denied or not supported */ }
+}
+function releaseWakeLock() {
+  if (wakeLockSentinel) {
+    wakeLockSentinel.release();
+    wakeLockSentinel = null;
+  }
+}
+// Re-acquire wake lock when user returns to the tab (visibility change
+// releases the lock automatically in most browsers).
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && timerState === 'running') {
+    acquireWakeLock();
+  }
+});
+
 function startTimer() {
   if (timerState==='running') {
     timerState='paused'; clearInterval(timerInterval);
     startBtn.textContent='RESUME'; swingActive=false; stopAnimLoop();
+    releaseWakeLock();
     broadcastMyState();
     return;
   }
   timerState='running'; startBtn.textContent='PAUSE';
   requestNotifPermission();
+  acquireWakeLock();
   updateSceneMode(timerMode === 'focus' ? 'focus' : 'break'); startAnimLoop();
   broadcastMyState();
 
@@ -4398,6 +4429,7 @@ function startTimer() {
       clearInterval(timerInterval); timerInterval=null;
       timerState='idle'; stopAnimLoop(); swingActive=false;
       startBtn.textContent='START';
+      releaseWakeLock();
       playSound(timerMode==='focus'?'complete':'break_end');
 
       if (timerMode==='focus') {
