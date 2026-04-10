@@ -601,18 +601,20 @@ body[data-layout="companion"] .session-indicator { font-size: 9px; }
   .mc-btn { padding: 6px 12px; font-size: 8px; }
 }
 
-/* ── Landscape mode — side-by-side layout ──
+/* ── Landscape / wide mode — side-by-side layout ──
    Left: scene (mountain + characters)
    Right: timer, status, controls
-   Triggered when device is landscape AND viewport is short. */
-@media (orientation: landscape) and (max-height: 600px) {
-  .app { width: 98vw; max-width: 98vw; }
+   Triggers when viewport is wider than tall (orientation: landscape)
+   OR aspect ratio exceeds 4:3. Responds dynamically to browser
+   window resize — no reload needed. */
+@media (orientation: landscape) and (max-height: 900px) {
+  .app { width: 98vw !important; max-width: 98vw !important; }
   .title { margin-bottom: 4px; }
   .title h1 { font-size: 18px; }
   .title .subtitle { font-size: 9px; }
   .inner {
-    display: grid;
-    grid-template-columns: 55% 1fr;
+    display: grid !important;
+    grid-template-columns: 55% 1fr !important;
     grid-template-rows: auto;
     gap: 4px 12px;
     padding: 6px;
