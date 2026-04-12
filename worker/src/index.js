@@ -306,11 +306,12 @@ export class FocusHub {
   handleStats() {
     const today = todayKey();
 
-    // daily total
+    // daily total — use toArray()[0] because .one() throws on empty result,
+    // and daily_totals has no seed row until the first session of the day.
     const dayRow = this.sql.exec(
       `SELECT sessions, minutes FROM daily_totals WHERE date = ?`,
       today
-    ).one() || { sessions: 0, minutes: 0 };
+    ).toArray()[0] || { sessions: 0, minutes: 0 };
 
     // lifetime total
     const lifeRow = this.sql.exec(
