@@ -3350,7 +3350,7 @@ function buildShareText() {
 //   2. window.POMODOCRAFT_API global (can be injected in index.html)
 //   3. Hardcoded DEFAULT_API below (edit this after wrangler deploy)
 // ═══════════════════════════════════════════
-const DEFAULT_API = '';  // ← paste wrangler deploy URL here after deployment
+const DEFAULT_API = 'https://pomodoro-craft-api.steve-kim-0417.workers.dev';
 const API_BASE_URL = (urlParam('api') || window.POMODOCRAFT_API || DEFAULT_API || '').replace(/\/$/, '');
 const HAS_BACKEND = API_BASE_URL.length > 0;
 

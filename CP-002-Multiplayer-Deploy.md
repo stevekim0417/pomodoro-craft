@@ -74,7 +74,7 @@ wrangler deploy
 
 ```
 Published pomodoro-craft-api (1.23 sec)
-  https://pomodoro-craft-api.{your-name}.workers.dev
+  https://pomodoro-craft-api.steve-kim-0417.workers.dev
 Current Version ID: xxxxxxxx-xxxx-xxxx
 ```
 
@@ -85,7 +85,7 @@ Current Version ID: xxxxxxxx-xxxx-xxxx
 브라우저에서 방금 받은 URL 의 `/health` 를 열어보세요:
 
 ```
-https://pomodoro-craft-api.{your-name}.workers.dev/health
+https://pomodoro-craft-api.steve-kim-0417.workers.dev/health
 ```
 
 `Pomodoro Craft API is running 🍅` 문구가 보이면 **Worker 가 정상 동작**하는 거예요.
@@ -93,7 +93,7 @@ https://pomodoro-craft-api.{your-name}.workers.dev/health
 그 다음 `/api/stats` 도 확인:
 
 ```
-https://pomodoro-craft-api.{your-name}.workers.dev/api/stats
+https://pomodoro-craft-api.steve-kim-0417.workers.dev/api/stats
 ```
 
 JSON 응답이 와야 해요:
@@ -117,17 +117,17 @@ JSON 응답이 와야 해요:
 const DEFAULT_API = '';
 
 // after — Step 5 에서 받은 URL 붙여넣기
-const DEFAULT_API = 'https://pomodoro-craft-api.your-name.workers.dev';
+const DEFAULT_API = 'https://pomodoro-craft-api.steve-kim-0417.workers.dev';
 ```
 
-저장 → git commit → push → 몇 분 뒤 https://stevekim0417.github.io/pomodoro-craft/ 에서 자동으로 백엔드 연결됨.
+저장 → git commit → push → 몇 분 뒤 https://pomodoro-craft-api.steve-kim-0417.workers.dev/ 에서 자동으로 백엔드 연결됨.
 
 #### 방법 B — URL 파라미터 (테스트용)
 
 코드 수정 없이 URL 뒤에 `?api=...` 붙이기:
 
 ```
-https://stevekim0417.github.io/pomodoro-craft/?api=https://pomodoro-craft-api.your-name.workers.dev
+https://pomodoro-craft-api.steve-kim-0417.workers.dev/?api=https://pomodoro-craft-api.steve-kim-0417.workers.dev
 ```
 
 이 방법은 해당 세션에만 적용돼요.

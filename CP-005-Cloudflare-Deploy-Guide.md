@@ -78,16 +78,19 @@ git --version
 
 > 💡 **신용카드 필요 없음!** Free 플랜으로 충분합니다.
 
-### 1-2. Workers 서브도메인 선택
+### 1-2. Workers 서브도메인 (이미 설정됨)
 
-첫 로그인 후 Workers를 처음 사용하면 서브도메인을 정합니다.
+이 프로젝트의 서브도메인은 **`steve-kim-0417`** 입니다.
+즉, 배포 후 실제 서비스 주소는:
 
-1. 왼쪽 메뉴 → **Workers & Pages** 클릭
-2. 서브도메인 입력 화면이 나옴
-3. 원하는 이름 입력 (예: `steve-craft`)
-4. 나중에 주소가 됨: `https://pomodoro-craft-api.steve-craft.workers.dev`
+```
+https://pomodoro-craft-api.steve-kim-0417.workers.dev
+```
 
-> ⚠️ **한 번 정하면 변경이 어려우니 신중하게 선택!**
+> 💡 대시보드 → **Workers & Pages** → 우측 **Account Details**에서 확인 가능
+> (`steve-kim-0417.workers.dev`로 표시됨)
+>
+> ⚠️ 서브도메인은 한 번 정하면 변경이 어려우니 그대로 사용합니다.
 
 ### 1-3. 무료 플랜 한도 (넉넉함)
 
@@ -260,7 +263,7 @@ Uploaded 1 of 1 assets
 Total Upload: 5.12 KiB / gzip: 1.87 KiB
 Uploaded pomodoro-craft-api (2.34 sec)
 Deployed pomodoro-craft-api triggers (0.45 sec)
-  https://pomodoro-craft-api.steve-craft.workers.dev
+  https://pomodoro-craft-api.steve-kim-0417.workers.dev
 Current Version ID: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
 ```
 
@@ -272,7 +275,7 @@ Current Version ID: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
 
 ```javascript
 // 배포 URL을 붙여넣기 (본인 URL로 교체!)
-const DEFAULT_API = 'https://pomodoro-craft-api.steve-craft.workers.dev';
+const DEFAULT_API = 'https://pomodoro-craft-api.steve-kim-0417.workers.dev';
 ```
 
 저장 후 다시 배포:
@@ -291,7 +294,7 @@ npx wrangler deploy
 
 배포 URL을 브라우저에 붙여넣기:
 ```
-https://pomodoro-craft-api.steve-craft.workers.dev
+https://pomodoro-craft-api.steve-kim-0417.workers.dev
 ```
 
 Pomodoro Craft 화면이 나오면 **프론트엔드 배포 성공!** 🎉
@@ -300,7 +303,7 @@ Pomodoro Craft 화면이 나오면 **프론트엔드 배포 성공!** 🎉
 
 ```bash
 # 헬스 체크
-curl https://pomodoro-craft-api.YOUR-SUBDOMAIN.workers.dev/health
+curl https://pomodoro-craft-api.steve-kim-0417.workers.dev/health
 ```
 ```
 Pomodoro Craft API is running 🍅
@@ -308,7 +311,7 @@ Pomodoro Craft API is running 🍅
 
 ```bash
 # 통계 API (Durable Object 동작 확인)
-curl https://pomodoro-craft-api.YOUR-SUBDOMAIN.workers.dev/api/stats
+curl https://pomodoro-craft-api.steve-kim-0417.workers.dev/api/stats
 ```
 ```json
 {
@@ -323,7 +326,7 @@ curl https://pomodoro-craft-api.YOUR-SUBDOMAIN.workers.dev/api/stats
 
 ```bash
 # 세션 기록 테스트
-curl -X POST https://pomodoro-craft-api.YOUR-SUBDOMAIN.workers.dev/api/session \
+curl -X POST https://pomodoro-craft-api.steve-kim-0417.workers.dev/api/session \
   -H "Content-Type: application/json" \
   -d '{"minutes":25,"theme":"tomato","nick":"test"}'
 ```
@@ -392,7 +395,7 @@ npx wrangler deploy              # 코드 수정 후 이것만 실행
 ### Q2. 도메인이 없어도 되나요?
 **네.** Cloudflare가 제공하는 무료 주소를 사용합니다:
 ```
-https://pomodoro-craft-api.YOUR-SUBDOMAIN.workers.dev
+https://pomodoro-craft-api.steve-kim-0417.workers.dev
 ```
 나중에 커스텀 도메인(예: `pomodoro.craft`)을 추가할 수 있습니다.
 

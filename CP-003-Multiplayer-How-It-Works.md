@@ -364,7 +364,7 @@ wrangler deploy
 Total Upload: 12.45 KiB / gzip: 3.21 KiB
 Uploaded pomodoro-craft-api (1.23 sec)
 Published pomodoro-craft-api (5.67 sec)
-  https://pomodoro-craft-api.stevekim.workers.dev      ← 이 URL 중요! 복사하세요
+  https://pomodoro-craft-api.steve-kim-0417.workers.dev      ← 이 URL 중요! 복사하세요
 Current Version ID: 8f3a0d1c-xxxx-xxxx-xxxx-xxxxxxxxxx
 ```
 
@@ -377,7 +377,7 @@ Current Version ID: 8f3a0d1c-xxxx-xxxx-xxxx-xxxxxxxxxx
 브라우저에서 방금 받은 URL 의 `/health` 경로를 열어보세요:
 
 ```
-https://pomodoro-craft-api.stevekim.workers.dev/health
+https://pomodoro-craft-api.steve-kim-0417.workers.dev/health
 ```
 
 화면에 **`Pomodoro Craft API is running 🍅`** 이 보이면 성공이에요.
@@ -385,7 +385,7 @@ https://pomodoro-craft-api.stevekim.workers.dev/health
 그 다음 `/api/stats` 도 확인:
 
 ```
-https://pomodoro-craft-api.stevekim.workers.dev/api/stats
+https://pomodoro-craft-api.steve-kim-0417.workers.dev/api/stats
 ```
 
 JSON 이 보여야 해요:
@@ -416,7 +416,7 @@ const DEFAULT_API = '';  // ← paste wrangler deploy URL here after deployment
 따옴표 안에 방금 받은 URL 을 붙여넣기:
 
 ```javascript
-const DEFAULT_API = 'https://pomodoro-craft-api.stevekim.workers.dev';
+const DEFAULT_API = 'https://pomodoro-craft-api.steve-kim-0417.workers.dev';
 ```
 
 저장 → 터미널에서:
@@ -428,7 +428,7 @@ git commit -m "Connect frontend to deployed multiplayer worker"
 git push
 ```
 
-**1-5분 뒤** https://stevekim0417.github.io/pomodoro-craft/ 에 자동 반영됩니다.
+**1-5분 뒤** https://pomodoro-craft-api.steve-kim-0417.workers.dev/ 에 자동 반영됩니다.
 
 ---
 
@@ -437,7 +437,7 @@ git push
 **테스트 시나리오**:
 
 ```
-1. PC 에서 https://stevekim0417.github.io/pomodoro-craft/ 열기
+1. PC 에서 https://pomodoro-craft-api.steve-kim-0417.workers.dev/ 열기
    → "🌱 Join 1 others focusing right now · LIVE" 가 보여야 함
 
 2. 폰에서 같은 URL 열기
