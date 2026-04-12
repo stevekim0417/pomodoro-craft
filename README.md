@@ -3,7 +3,7 @@
 > A **Minecraft-themed Pomodoro focus timer** with pixel art animations.
 > Steve harvests tomatoes while you focus. Free, single HTML file, no install.
 
-**▶️ Try it now: https://stevekim0417.github.io/pomodoro-craft/**
+**▶️ Try it now: https://pomodoro-craft-api.steve-kim-0417.workers.dev/**
 
 ## ✨ What makes it different
 
@@ -28,14 +28,14 @@ npx serve .
 ```
 
 ### Option 3 — Hosted version
-Visit **[the live site](https://stevekim0417.github.io/pomodoro-craft/)** — nothing to install.
+Visit **[the live site](https://pomodoro-craft-api.steve-kim-0417.workers.dev/)** — nothing to install.
 
 ## 🎬 Companion Mode (for streamers / creators)
 
 Add `?mode=companion` to the URL to switch into a fullscreen layout where only Steve and a small timer overlay are visible — perfect as an OBS browser source or a YouTube live stream background.
 
 ```
-https://stevekim0417.github.io/pomodoro-craft/?mode=companion&focus=25&autostart=1
+https://pomodoro-craft-api.steve-kim-0417.workers.dev/?mode=companion&focus=25&autostart=1
 ```
 
 | Use case | URL |
