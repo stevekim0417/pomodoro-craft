@@ -1,0 +1,7 @@
+worker/
+CP-*.md
+README.md
+.git/
+.github/
+.assetsignore
+.claude/
